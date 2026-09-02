@@ -15,7 +15,7 @@
     input, button { width: 100%; max-width: 320px; padding: 14px; margin-top: 10px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; }
     button { background: #d97706; color: #fff; cursor: pointer; }
 
-    /* شريط المعلومات العلوي */
+    /* الشريط العلوي */
     .top-bar {
       width: 100%;
       background: #1e1e1e;
@@ -33,8 +33,8 @@
     .table-felt {
       position: relative;
       width: 95%;
-      max-width: 500px;
-      height: 40vh;
+      max-width: 550px;
+      height: 38vh;
       margin: 5px auto 0 auto;
       background: radial-gradient(circle, #347838 0%, #17421a 100%);
       border: 6px solid #4a4a4a;
@@ -42,83 +42,81 @@
       box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 25px rgba(0,0,0,0.5);
     }
 
-    .opponent-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); text-align: center; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin: 0 auto; }
+    .opponent-area { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); text-align: center; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin: 0 auto; }
     .player-name { background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-top: 2px; }
 
     .center-piles { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; }
-    .pile-box { width: 60px; height: 82px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; position: relative; cursor: pointer; transition: transform 0.1s; }
-    .pile-box:active { transform: scale(0.95); }
+    .pile-box { width: 58px; height: 80px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; position: relative; cursor: pointer; }
     .card-back { width: 100%; height: 100%; background: #b91c1c; border-radius: 6px; border: 2px solid #fff; }
 
-    .table-melds { position: absolute; bottom: 8px; width: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 5px; }
+    .table-melds { position: absolute; bottom: 6px; width: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 5px; }
     .meld-group { display: flex; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
     .meld-card { width: 26px; height: 38px; background: #fff; color: #000; border-radius: 4px; font-size: 10px; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: -10px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     .meld-card:first-child { margin-left: 0; }
 
-    /* أدوات التصفيط */
+    /* أدوات تصفيط */
     .hand-tools { display: flex; justify-content: center; gap: 10px; padding: 4px; background: #181818; border-top: 1px solid #333; }
-    .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
-    .btn-tool:active { background: #4b5563; }
+    .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; }
 
-    /* منطقة يد اللاعبJawaker Style */
+    /* منطقة اليد */
     .hand-wrapper {
       width: 100%;
-      padding: 10px 5px;
+      padding: 10px;
       background: #141414;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      overflow-x: auto;
-      white-space: nowrap;
-      scrollbar-width: none; /* إخفاء شريط التمرير للبصريات الممتازة */
+      gap: 10px;
     }
-    .hand-wrapper::-webkit-scrollbar { display: none; }
 
     .hand-row {
       display: flex;
       align-items: center;
-      min-height: 85px;
-      padding: 0 15px;
-      gap: 6px;
+      justify-content: center;
+      min-height: 80px;
+      width: 100%;
+      gap: 4px;
     }
 
-    /* كروت جواكر ناعمة مع تأثيرات فيزيائية */
+    /* تصميم الكروت */
     .card {
       width: 52px;
-      min-width: 52px;
       height: 78px;
       background: #ffffff;
       color: #111;
-      border-radius: 8px;
-      padding: 4px 6px;
+      border-radius: 7px;
+      padding: 4px;
       font-weight: bold;
       font-size: 14px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-      border: 1px solid #ddd;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      border: 1px solid #ccc;
       cursor: grab;
       position: relative;
-      transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      touch-action: manipulation;
+      transition: transform 0.15s ease, border 0.2s ease, box-shadow 0.2s ease;
     }
 
+    .card:active { cursor: grabbing; }
     .card.red { color: #dc2626; }
     
-    /* عند اختيار كرت (تحديد للتنزيل أو النقل) */
-    .card.selected { 
-      transform: translateY(-16px) scale(1.05) !important; 
-      border: 2.5px solid #f59e0b !important; 
-      box-shadow: 0 8px 18px rgba(245, 158, 11, 0.6) !important; 
-      z-index: 50; 
+    /* مؤشر النزول الجاهز (إطار نيون أخضر/أزرق زي جواكر) */
+    .card.valid-meld-group {
+      border: 2px solid #10b981 !important;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.7) !important;
     }
 
-    /* أنيميشن ناعم أثناء السحب باليد */
-    .card-ghost { opacity: 0.2 !important; transform: scale(0.9) !important; }
-    .card-drag { transform: scale(1.15) rotate(3deg) !important; z-index: 1000 !important; box-shadow: 0 12px 25px rgba(0,0,0,0.6) !important; }
+    /* عند اختيار الكرت للتنزيل */
+    .card.selected { 
+      transform: translateY(-14px) !important; 
+      border: 2.5px solid #f59e0b !important; 
+      box-shadow: 0 6px 14px rgba(245, 158, 11, 0.6) !important; 
+    }
+
+    .card-ghost { opacity: 0.15 !important; background: #333 !important; }
+    .card-drag { transform: scale(1.1) !important; z-index: 9999 !important; opacity: 0.95; }
 
     .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
     .sum-box { font-size: 12px; color: #aaa; text-align: center; }
@@ -169,13 +167,13 @@
       <div class="table-melds" id="tableMelds"></div>
     </div>
 
-    <!-- أدوات الفرز والتصفيط التلقائي -->
+    <!-- أدوات الفرز -->
     <div class="hand-tools">
       <button class="btn-tool" onclick="sortHand('value')">تصفيط أرقام 🔢</button>
       <button class="btn-tool" onclick="sortHand('suit')">تصفيط أنواع ♠️♦️</button>
     </div>
 
-    <!-- اليد (صفين مفرودين وسلسين) -->
+    <!-- اليد -->
     <div class="hand-wrapper">
       <div class="hand-row" id="row1"></div>
       <div class="hand-row" id="row2"></div>
@@ -198,7 +196,6 @@
     const socket = io();
     let myHandRow1 = [], myHandRow2 = [];
     let selectedCards = new Set();
-    let swapFirstCard = null; // ميزة الضغط للنقل بين الأماكن
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
 
@@ -248,7 +245,6 @@
       myHandRow1 = hand.slice(0, half);
       myHandRow2 = hand.slice(half);
       selectedCards.clear();
-      swapFirstCard = null;
       updateSum();
       renderHand();
     });
@@ -275,22 +271,43 @@
     }
 
     function renderHand() {
-      renderRow("row1", myHandRow1);
-      renderRow("row2", myHandRow2);
+      const validMeldIds = detectMeldGroups([...myHandRow1, ...myHandRow2]);
+      renderRow("row1", myHandRow1, validMeldIds);
+      renderRow("row2", myHandRow2, validMeldIds);
     }
 
-    function renderRow(rowId, cards) {
+    /* الكشف التلقائي عن كروت النزول الجاهزة في اليد */
+    function detectMeldGroups(hand) {
+      const validIds = new Set();
+      const groups = {};
+
+      // تجميع الأوراق حسب قيمتها (مثال: 3 أوراق A)
+      hand.forEach(c => {
+        if (!groups[c.value]) groups[c.value] = [];
+        groups[c.value].push(c);
+      });
+
+      Object.values(groups).forEach(group => {
+        if (group.length >= 3) {
+          group.forEach(card => validIds.add(card.id));
+        }
+      });
+
+      return validIds;
+    }
+
+    function renderRow(rowId, cards, validMeldIds) {
       const container = document.getElementById(rowId);
       container.innerHTML = "";
       cards.forEach((card) => {
         const div = document.createElement("div");
-        div.className = `card ${card.color} ${selectedCards.has(card.id) ? 'selected' : ''}`;
+        const isValidMeld = validMeldIds.has(card.id);
+        
+        div.className = `card ${card.color} ${selectedCards.has(card.id) ? 'selected' : ''} ${isValidMeld ? 'valid-meld-group' : ''}`;
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
-        // النقر الذكي: يحدد الكرت أو ينقله بسلاسة
-        div.onclick = (e) => {
-          e.stopPropagation();
+        div.onclick = () => {
           if (selectedCards.has(card.id)) {
             selectedCards.delete(card.id);
           } else {
@@ -304,18 +321,18 @@
       });
     }
 
-    // تجهيز ميزة السحب والتفليت الفيزيائية مثل جواكر
     function initSortable() {
       ['row1', 'row2'].forEach(rowId => {
         new Sortable(document.getElementById(rowId), {
           group: 'hand',
-          animation: 250, // أنيميشن حركي ناعم جداً عند التبديل
-          easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+          animation: 200,
           ghostClass: 'card-ghost',
           dragClass: 'card-drag',
-          delay: 50, // تفادي السحب بالخطأ عند اللمس السريع
-          delayOnTouchOnly: true,
-          onEnd: syncHandState
+          fallbackTolerance: 3,
+          onEnd: () => {
+            syncHandState();
+            renderHand(); // إعادة التحديد والتلوين فوراً بعد الحركة
+          }
         });
       });
     }
@@ -331,7 +348,6 @@
       myHandRow2 = getRowCards("row2");
     }
 
-    // تصفيط الكروت الذكي تلقائياً
     function sortHand(type) {
       let fullHand = [...myHandRow1, ...myHandRow2];
       const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14, 'JOKER':15};
