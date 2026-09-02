@@ -326,7 +326,7 @@
           e.stopPropagation();
           clearDropTargetStyles();
           if (draggedCardId && draggedCardId !== card.id) {
-            moveCardToBefore(draggedCardId, card.id, rowId);
+            moveCardToTarget(draggedCardId, card.id, rowId);
           }
         };
 
@@ -362,19 +362,22 @@
       };
     }
 
-    function moveCardToBefore(sourceId, targetId, targetRowId) {
+    function moveCardToTarget(sourceId, targetId, targetRowId) {
       const allCards = [...myHandRow1, ...myHandRow2];
       const sourceCard = allCards.find(c => c.id == sourceId);
 
       if (!sourceCard) return;
 
+      // حذف الكرت من مكانه القديم في السطرين
       myHandRow1 = myHandRow1.filter(c => c.id != sourceId);
       myHandRow2 = myHandRow2.filter(c => c.id != sourceId);
 
+      // تحديد السطر المستهدف بدقة
       const targetRow = targetRowId === "row1" ? myHandRow1 : myHandRow2;
       const targetIdx = targetRow.findIndex(c => c.id == targetId);
 
       if (targetIdx !== -1) {
+        // وضعه قبل الكرت المستهدف مباشرة في نفس السطر الذي تم الإفلات عليه
         targetRow.splice(targetIdx, 0, sourceCard);
       } else {
         targetRow.push(sourceCard);
@@ -467,6 +470,8 @@
         let sub = row.slice(startIndex, startIndex + len);
         
         let nonJokers = sub.filter(c => c.value !== 'JOKER');
+        
+        // فحص المجموعة المشابهة (مثل ثلاث 5 أو أربع 5)
         if (nonJokers.length > 0) {
           let firstVal = nonJokers[0].value;
           let isSameSet = nonJokers.every(c => c.value === firstVal);
@@ -474,6 +479,7 @@
           if (isSameSet && suits.size === nonJokers.length) return len;
         }
 
+        // فحص المتتاليات من نفس النوع (مثل 4 5 6 ♠)
         if (nonJokers.length > 0) {
           let targetSuit = nonJokers[0].suit;
           let sameSuit = nonJokers.every(c => c.suit === targetSuit);
