@@ -3,19 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>هاند سعودي - Jawaker Style</title>
+  <title>هاند سعودي - Jawaker Mechanics</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #121212; color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
 
-    /* شاشة الدخول */
     .screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
     .hidden { display: none !important; }
     input, button { width: 100%; max-width: 320px; padding: 14px; margin-top: 10px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; }
     button { background: #d97706; color: #fff; cursor: pointer; }
 
-    /* الشريط العلوي */
     .top-bar {
       width: 100%;
       background: #1e1e1e;
@@ -47,7 +45,8 @@
     .player-name { background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-top: 2px; }
 
     .center-piles { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; }
-    .pile-box { width: 58px; height: 80px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; position: relative; cursor: pointer; }
+    .pile-box { width: 60px; height: 85px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; position: relative; cursor: pointer; transition: transform 0.1s; }
+    .pile-box:active { transform: scale(0.95); }
     .card-back { width: 100%; height: 100%; background: #b91c1c; border-radius: 6px; border: 2px solid #fff; }
 
     .table-melds { position: absolute; bottom: 6px; width: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 5px; }
@@ -55,19 +54,17 @@
     .meld-card { width: 26px; height: 38px; background: #fff; color: #000; border-radius: 4px; font-size: 10px; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: -10px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     .meld-card:first-child { margin-left: 0; }
 
-    /* أدوات التصفيط */
     .hand-tools { display: flex; justify-content: center; gap: 10px; padding: 4px; background: #181818; border-top: 1px solid #333; }
     .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; }
 
-    /* منطقة يد اللاعب - تداخل واسع فتح مجال لسحب جواكر */
+    /* منطقة يد اللاعب بكامل سلاسة جواكر */
     .hand-wrapper {
       width: 100%;
-      padding: 15px 10px;
+      padding: 15px 5px;
       background: #141414;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      overflow-x: auto;
+      gap: 10px;
     }
 
     .hand-row {
@@ -76,61 +73,66 @@
       justify-content: center;
       min-height: 85px;
       width: 100%;
-      padding: 0 20px;
+      padding: 0 10px;
     }
 
-    /* كروت جواكر المتداخلة ببعضها */
+    /* الكروت وتداخلها */
     .card {
-      width: 54px;
-      height: 82px;
+      width: 52px;
+      height: 80px;
       background: #ffffff;
       color: #111;
-      border-radius: 8px;
+      border-radius: 7px;
       padding: 4px;
       font-weight: bold;
       font-size: 14px;
-      box-shadow: -2px 0 8px rgba(0,0,0,0.4);
-      border: 1px solid #bbb;
+      box-shadow: -2px 0 6px rgba(0,0,0,0.3);
+      border: 1px solid #ccc;
       cursor: grab;
       position: relative;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      margin-left: -18px; /* تداخل الكروت كأوراق اليد الحقيقية */
-      transition: transform 0.15s ease, margin 0.2s ease, border-color 0.2s;
+      margin-left: -16px;
+      transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), margin 0.2s ease;
+      touch-action: none;
     }
 
     .card:first-child { margin-left: 0; }
     .card.red { color: #dc2626; }
     
-    /* عند تحديد كرت للرمي أو التنزيل */
+    /* عند تحديد كرت واحد فقط */
     .card.selected { 
-      transform: translateY(-16px) !important; 
-      border: 2.5px solid #f59e0b !important; 
+      transform: translateY(-18px) !important; 
+      border: 2px solid #f59e0b !important; 
       box-shadow: 0 8px 16px rgba(245, 158, 11, 0.6) !important; 
       z-index: 100;
     }
 
-    /* إظهار لون خط النزول العلوي كجواكر (Meld Indicator) */
-    .card.meld-start { border-top: 4px solid #10b981 !important; border-top-left-radius: 8px; }
-    .card.meld-mid { border-top: 4px solid #10b981 !important; border-radius: 0; }
-    .card.meld-end { border-top: 4px solid #10b981 !important; border-top-right-radius: 8px; }
+    /* أشرطة تظليل النزول في الجزء العلوي */
+    .card.meld-start { border-top: 4px solid #10b981 !important; }
+    .card.meld-mid { border-top: 4px solid #10b981 !important; }
+    .card.meld-end { border-top: 4px solid #10b981 !important; }
 
-    /* أنيميشن فتح المجال عند السحب بين الكروت */
+    /* سلاسة سحب فتح المجال */
     .card-ghost { 
-      opacity: 0.2 !important; 
+      opacity: 0.25 !important; 
       background: #f59e0b !important; 
-      margin-left: 10px !important; 
-      margin-right: 10px !important;
+      margin: 0 12px !important;
       border: 2px dashed #f59e0b !important;
     }
-    .card-drag { transform: scale(1.15) rotate(-3deg) !important; z-index: 9999 !important; box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important; }
+    .card-drag { transform: scale(1.1) rotate(-2deg) !important; z-index: 9999 !important; }
 
     .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
     .sum-box { font-size: 12px; color: #aaa; text-align: center; }
     .sum-val { font-size: 16px; color: #fff; font-weight: bold; }
-    .btn-meld { background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); color: #fff; width: 110px; padding: 8px; border-radius: 8px; font-size: 15px; font-weight: bold; border: 1px solid #fde047; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
+    
+    /* أزرار الإجراءات */
+    .action-btns { display: flex; gap: 8px; }
+    .btn-action { color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
+    .btn-discard { background: #dc2626; border: 1px solid #ef4444; }
+    .btn-meld { background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); border: 1px solid #fde047; }
 
     .error-toast { position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); color: #fff; padding: 12px 20px; border-radius: 10px; border: 1px solid #ef4444; font-weight: bold; font-size: 13px; z-index: 9999; text-align: center; display: none; }
   </style>
@@ -165,10 +167,10 @@
       </div>
 
       <div class="center-piles">
-        <div class="pile-box" id="deckPile">
+        <div class="pile-box" id="deckPile" title="اضغط لسحب كرت">
           <div class="card-back"></div>
         </div>
-        <div class="pile-box" id="discardPile">
+        <div class="pile-box" id="discardPile" title="النار / كروت المرمية">
           <span id="discardCard" style="font-weight:bold;">-</span>
         </div>
       </div>
@@ -195,7 +197,11 @@
         <div>المجموع</div>
         <div class="sum-val" id="selectedSum">0/51</div>
       </div>
-      <button class="btn-meld" id="meldBtn">انزل</button>
+
+      <div class="action-btns">
+        <button class="btn-action btn-discard hidden" id="discardBtn">ارمِ 🔥</button>
+        <button class="btn-action btn-meld" id="meldBtn">انزل</button>
+      </div>
     </div>
 
   </div>
@@ -204,7 +210,7 @@
   <script>
     const socket = io();
     let myHandRow1 = [], myHandRow2 = [];
-    let selectedCards = new Set();
+    let selectedCardId = null; // تحديد كرت واحد فقط كـ Jawaker
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
 
@@ -253,7 +259,7 @@
       const half = Math.ceil(hand.length / 2);
       myHandRow1 = hand.slice(0, half);
       myHandRow2 = hand.slice(half);
-      selectedCards.clear();
+      selectedCardId = null;
       renderHand();
     });
 
@@ -267,6 +273,7 @@
         document.getElementById("discardCard").innerHTML = `<span class="${state.discardTop.color}">${state.discardTop.value}${state.discardTop.suit}</span>`;
       }
       renderTableMelds(state.melds || []);
+      updateDiscardButtonVisibility();
     });
 
     socket.on("error-msg", (msg) => showError(msg));
@@ -282,6 +289,7 @@
       renderRow("row1", myHandRow1);
       renderRow("row2", myHandRow2);
       calculateAndHighlightMelds();
+      updateDiscardButtonVisibility();
     }
 
     function renderRow(rowId, cards) {
@@ -289,17 +297,15 @@
       container.innerHTML = "";
       cards.forEach((card) => {
         const div = document.createElement("div");
-        div.className = `card ${card.color} ${selectedCards.has(card.id) ? 'selected' : ''}`;
+        const isSelected = selectedCardId === card.id;
+        div.className = `card ${card.color} ${isSelected ? 'selected' : ''}`;
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
+        // اختيار كرت واحد فقط عند الضغط
         div.onclick = (e) => {
           e.stopPropagation();
-          if (selectedCards.has(card.id)) {
-            selectedCards.delete(card.id);
-          } else {
-            selectedCards.add(card.id);
-          }
+          selectedCardId = isSelected ? null : card.id;
           renderHand();
         };
 
@@ -307,17 +313,17 @@
       });
     }
 
-    /* إعداد حركة السحب وفتح المجال بين الكروت كـ Jawaher بالظبط */
+    /* تهيئة السحب السلس وإفساح المجال التلقائي بين الكروت */
     function initSortable() {
       ['row1', 'row2'].forEach(rowId => {
         new Sortable(document.getElementById(rowId), {
           group: 'hand',
-          animation: 180,
+          animation: 150,
           ghostClass: 'card-ghost',
           dragClass: 'card-drag',
           forceFallback: true,
-          fallbackTolerance: 3,
-          swapThreshold: 0.65,
+          fallbackTolerance: 2,
+          swapThreshold: 0.5,
           onEnd: () => {
             syncHandState();
             renderHand();
@@ -337,53 +343,79 @@
       myHandRow2 = getRowCards("row2");
     }
 
-    /* فحص التجميعات اليدوية الناجحة وتلوين شريطها العلوي وحساب النقاط تلقائياً */
-    function calculateAndHighlightMelds() {
-      const allCards = [...myHandRow1, ...myHandRow2];
-      let totalMeldSum = 0;
+    /* إظهار زر الرمي عند اختيار كرت واحد فقط وفي دورك */
+    function updateDiscardButtonVisibility() {
+      const btn = document.getElementById("discardBtn");
+      if (selectedCardId && isMyTurn && hasDrawn) {
+        btn.classList.remove("hidden");
+      } else {
+        btn.classList.add("hidden");
+      }
+    }
 
-      // إزالة الخطوط السابقة
+    /* رمي الكرت المختار للشارع / النار */
+    document.getElementById("discardBtn").onclick = () => {
+      if (!selectedCardId || !isMyTurn || !hasDrawn) return;
+      socket.emit("discard-card", { roomCode, cardId: selectedCardId });
+      selectedCardId = null;
+    };
+
+    /* سحب كرت بضغطة واحدة من كومة السحب */
+    document.getElementById("deckPile").onclick = () => {
+      if (isMyTurn && !hasDrawn) {
+        socket.emit("draw-card", { roomCode, fromDiscard: false });
+      }
+    };
+
+    document.getElementById("discardPile").onclick = () => {
+      if (isMyTurn && !hasDrawn) {
+        socket.emit("draw-card", { roomCode, fromDiscard: true });
+      }
+    };
+
+    /* فحص النزول المكتمل المرتّب وتلوين الشريط العلوي له تلقائياً */
+    function calculateAndHighlightMelds() {
       document.querySelectorAll('.card').forEach(c => {
         c.classList.remove('meld-start', 'meld-mid', 'meld-end');
       });
 
-      // التحقق من المتتاليات اليدوية في الصف الأول والثاني
+      let totalMeldSum = 0;
+
       [myHandRow1, myHandRow2].forEach(row => {
-        let currentSequence = [];
+        let currentGroup = [];
 
         for (let i = 0; i < row.length; i++) {
           const card = row[i];
           const prevCard = row[i - 1];
 
           if (isValidContinuation(prevCard, card)) {
-            if (currentSequence.length === 0) currentSequence.push(prevCard);
-            currentSequence.push(card);
+            if (currentGroup.length === 0) currentGroup.push(prevCard);
+            currentGroup.push(card);
           } else {
-            if (currentSequence.length >= 3) {
-              applyMeldBorder(currentSequence);
-              totalMeldSum += getSequenceScore(currentSequence);
+            if (currentGroup.length >= 3) {
+              applyMeldBorder(currentGroup);
+              totalMeldSum += getGroupScore(currentGroup);
             }
-            currentSequence = [];
+            currentGroup = [];
           }
         }
 
-        if (currentSequence.length >= 3) {
-          applyMeldBorder(currentSequence);
-          totalMeldSum += getSequenceScore(currentSequence);
+        if (currentGroup.length >= 3) {
+          applyMeldBorder(currentGroup);
+          totalMeldSum += getGroupScore(currentGroup);
         }
       });
 
-      // تحديث المجموع في الأسفل
       document.getElementById("selectedSum").textContent = `${totalMeldSum}/51`;
     }
 
     function isValidContinuation(prev, curr) {
       if (!prev || !curr) return false;
       if (prev.value === 'JOKER' || curr.value === 'JOKER') return true;
-      if (prev.value === curr.value) return true; // ثلاثية من نفس الرقم
+      if (prev.value === curr.value) return true;
 
       const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
-      if (prev.suit === curr.suit && valOrder[curr.value] === valOrder[prev.value] + 1) return true; // تسلسل نزل
+      if (prev.suit === curr.suit && valOrder[curr.value] === valOrder[prev.value] + 1) return true;
 
       return false;
     }
@@ -399,7 +431,7 @@
       });
     }
 
-    function getSequenceScore(cards) {
+    function getGroupScore(cards) {
       return cards.reduce((sum, c) => {
         if (c.value === 'A') return sum + 11;
         if (['K','Q','J'].includes(c.value)) return sum + 10;
@@ -425,15 +457,8 @@
     }
 
     document.getElementById("meldBtn").onclick = () => {
-      if (selectedCards.size === 0) return;
-      socket.emit("meld-cards", { roomCode, cardIds: Array.from(selectedCards) });
-    };
-
-    document.getElementById("deckPile").onclick = () => {
-      if (isMyTurn && !hasDrawn) socket.emit("draw-card", { roomCode, fromDiscard: false });
-    };
-    document.getElementById("discardPile").onclick = () => {
-      if (isMyTurn && !hasDrawn) socket.emit("draw-card", { roomCode, fromDiscard: true });
+      if (!selectedCardId) return;
+      socket.emit("meld-cards", { roomCode, cardIds: [selectedCardId] });
     };
 
     function renderTableMelds(melds) {
