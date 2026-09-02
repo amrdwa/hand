@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>هاند سعودي - Jawaker Mechanics</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+  <title>هاند سعودي - Jawaker Drag System</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #121212; color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
@@ -62,7 +61,7 @@
       background: #141414;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
     .hand-row {
@@ -74,6 +73,7 @@
       padding: 0 10px;
     }
 
+    /* نظام الكروت وتنسيق الإسقاط */
     .card {
       width: 52px;
       height: 80px;
@@ -92,7 +92,7 @@
       justify-content: space-between;
       align-items: center;
       margin-left: -16px;
-      transition: margin 0.15s ease, transform 0.15s ease;
+      transition: transform 0.15s ease, margin 0.15s ease, opacity 0.15s ease;
       touch-action: none;
     }
 
@@ -108,24 +108,14 @@
 
     .card.meld-start, .card.meld-mid, .card.meld-end { border-top: 4px solid #10b981 !important; }
 
-    /* حيلة الحل: توسيع المسافات بين الكروت أثناء السحب لدحش الكرت بسهولة */
-    .is-dragging .card {
-      margin-left: 4px !important;
+    /* تأثير الكرت أثناء حمله وحركته بالأيدي */
+    .card.dragging {
+      opacity: 0.2;
     }
 
-    /* مكان الكرت الجديد الجاري حشره */
-    .card-ghost { 
-      opacity: 0.4 !important; 
-      background: #f59e0b !important; 
-      border: 2px dashed #d97706 !important;
-      margin-left: 4px !important;
-      width: 52px !important;
-    }
-    
-    .card-drag { 
-      transform: scale(1.15) !important; 
-      z-index: 9999 !important; 
-      margin-left: 0 !important;
+    .card.drop-target-left {
+      border-left: 4px solid #3b82f6 !important;
+      margin-left: 8px !important;
     }
 
     .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
@@ -209,6 +199,7 @@
     let selectedCardId = null;
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
+    let draggedCardId = null;
 
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
@@ -243,7 +234,6 @@
     function showGame() {
       document.getElementById("authScreen").classList.add("hidden");
       document.getElementById("gameScreen").classList.remove("hidden");
-      initSortable();
     }
 
     socket.on("update-players", (players) => {
@@ -291,57 +281,109 @@
     function renderRow(rowId, cards) {
       const container = document.getElementById(rowId);
       container.innerHTML = "";
+
+      // إعداد الصف ليستقبل الكروت المرفوعة
+      container.ondragover = (e) => e.preventDefault();
+      container.ondrop = (e) => handleContainerDrop(e, rowId);
+
       cards.forEach((card) => {
         const div = document.createElement("div");
         const isSelected = selectedCardId === card.id;
         div.className = `card ${card.color} ${isSelected ? 'selected' : ''}`;
         div.dataset.id = card.id;
+        div.draggable = true;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
+        // التحديد بزر الماوس/اللمس
         div.onclick = (e) => {
           e.stopPropagation();
           selectedCardId = isSelected ? null : card.id;
           renderHand();
         };
 
+        // أحداث السحب المباشر الفوري DND
+        div.ondragstart = (e) => {
+          draggedCardId = card.id;
+          div.classList.add("dragging");
+          e.dataTransfer.setData("text/plain", card.id);
+        };
+
+        div.ondragend = () => {
+          div.classList.remove("dragging");
+          clearDropTargetStyles();
+        };
+
+        div.ondragover = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (draggedCardId !== card.id) {
+            div.classList.add("drop-target-left");
+          }
+        };
+
+        div.ondragleave = () => {
+          div.classList.remove("drop-target-left");
+        };
+
+        div.ondrop = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          clearDropTargetStyles();
+          if (draggedCardId && draggedCardId !== card.id) {
+            moveCardToBefore(draggedCardId, card.id, rowId);
+          }
+        };
+
         container.appendChild(div);
       });
     }
 
-    function initSortable() {
-      const handWrapper = document.getElementById("handWrapper");
-
-      ['row1', 'row2'].forEach(rowId => {
-        new Sortable(document.getElementById(rowId), {
-          group: 'hand',
-          animation: 200,
-          ghostClass: 'card-ghost',
-          dragClass: 'card-drag',
-          forceFallback: true,
-          fallbackTolerance: 3,
-          onStart: () => {
-            // فتح مجال بين كل الكروت فور بداية السحب
-            handWrapper.classList.add("is-dragging");
-          },
-          onEnd: () => {
-            // إعادة التداخل بعد الإفلات
-            handWrapper.classList.remove("is-dragging");
-            syncHandState();
-            renderHand();
-          }
-        });
-      });
+    function clearDropTargetStyles() {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('drop-target-left'));
     }
 
-    function syncHandState() {
+    // نقل الكرت بدقة متناهية وإفلاته على اليسار
+    function moveCardToBefore(sourceId, targetId, targetRowId) {
       const allCards = [...myHandRow1, ...myHandRow2];
+      const sourceCard = allCards.find(c => c.id == sourceId);
 
-      const getRowCards = (id) => Array.from(document.getElementById(id).children).map(el => {
-        return allCards.find(c => c.id == el.dataset.id);
-      }).filter(Boolean);
+      if (!sourceCard) return;
 
-      myHandRow1 = getRowCards("row1");
-      myHandRow2 = getRowCards("row2");
+      // إزالة الكرت المسحوب من مكانه الأصلي
+      myHandRow1 = myHandRow1.filter(c => c.id != sourceId);
+      myHandRow2 = myHandRow2.filter(c => c.id != sourceId);
+
+      // العثور على موقع الكرت الهدف (مثلاً الـ 2)
+      const targetRow = targetRowId === "row1" ? myHandRow1 : myHandRow2;
+      const targetIdx = targetRow.findIndex(c => c.id == targetId);
+
+      if (targetIdx !== -1) {
+        // حشر الكرت تماماً على شمال الهدف
+        targetRow.splice(targetIdx, 0, sourceCard);
+      } else {
+        targetRow.push(sourceCard);
+      }
+
+      draggedCardId = null;
+      renderHand();
+    }
+
+    function handleContainerDrop(e, rowId) {
+      e.preventDefault();
+      if (!draggedCardId) return;
+
+      const allCards = [...myHandRow1, ...myHandRow2];
+      const sourceCard = allCards.find(c => c.id == draggedCardId);
+      if (!sourceCard) return;
+
+      myHandRow1 = myHandRow1.filter(c => c.id != draggedCardId);
+      myHandRow2 = myHandRow2.filter(c => c.id != draggedCardId);
+
+      if (rowId === "row1") myHandRow1.push(sourceCard);
+      else myHandRow2.push(sourceCard);
+
+      draggedCardId = null;
+      renderHand();
     }
 
     function updateDiscardButtonVisibility() {
