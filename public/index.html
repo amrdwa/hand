@@ -375,6 +375,7 @@
       const targetIdx = targetRow.findIndex(c => c.id == targetId);
 
       if (targetIdx !== -1) {
+        // وضعه على شمال الكرت المستهدف تماماً (قبل الـ index القديم مباشرة)
         targetRow.splice(targetIdx, 0, sourceCard);
       } else {
         targetRow.push(sourceCard);
