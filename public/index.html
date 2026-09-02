@@ -3,87 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>هاند سعودي - Jawaker Drag System</title>
+  <title>هاند سعودي - Jawaker System</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #121212; color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
 
-    .screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+    .screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; }
     .hidden { display: none !important; }
-    input, button { width: 100%; max-width: 320px; padding: 14px; margin-top: 10px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; }
+    input, button { width: 100%; max-width: 300px; padding: 12px; margin-top: 10px; border-radius: 12px; border: none; font-size: 15px; font-weight: bold; }
     button { background: #d97706; color: #fff; cursor: pointer; }
 
     .top-bar {
       width: 100%;
       background: #1e1e1e;
-      padding: 10px 15px;
+      padding: 8px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 2px solid #333;
       z-index: 10;
     }
-    .room-info { font-size: 14px; font-weight: bold; color: #f59e0b; }
-    .btn-start { background: #10b981; padding: 6px 15px; width: auto; margin: 0; font-size: 14px; border-radius: 6px; }
+    .room-info { font-size: 13px; font-weight: bold; color: #f59e0b; display: flex; align-items: center; gap: 6px; }
+    .copy-btn { background: #374151; color: #fff; border: none; padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+    .copy-btn:active { background: #10b981; }
+    .btn-start { background: #10b981; padding: 6px 12px; width: auto; margin: 0; font-size: 13px; border-radius: 6px; }
 
     .table-felt {
       position: relative;
-      width: 95%;
-      max-width: 550px;
-      height: 36vh;
-      margin: 5px auto 0 auto;
+      width: 96%;
+      max-width: 500px;
+      height: 38vh;
+      margin: 2px auto;
       background: radial-gradient(circle, #347838 0%, #17421a 100%);
-      border: 6px solid #4a4a4a;
-      border-radius: 35px;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 25px rgba(0,0,0,0.5);
+      border: 5px solid #4a4a4a;
+      border-radius: 28px;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 8px 20px rgba(0,0,0,0.5);
     }
 
-    .opponent-area { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); text-align: center; }
-    .avatar { width: 38px; height: 38px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin: 0 auto; }
-    .player-name { background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-top: 2px; }
+    .opponent-area { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); text-align: center; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; margin: 0 auto; }
+    .player-name { background: rgba(0,0,0,0.7); padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-top: 2px; }
 
-    .center-piles { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; }
-    .pile-box { width: 60px; height: 85px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; position: relative; cursor: pointer; transition: transform 0.1s; }
+    .center-piles { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 15px; }
+    .pile-box { width: 55px; height: 78px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; position: relative; cursor: pointer; transition: transform 0.1s, border-color 0.2s; }
     .pile-box:active { transform: scale(0.95); }
+    .pile-box.drag-over-discard { border: 2px solid #ef4444; background: rgba(220, 38, 38, 0.3); }
     .card-back { width: 100%; height: 100%; background: #b91c1c; border-radius: 6px; border: 2px solid #fff; }
 
-    .table-melds { position: absolute; bottom: 6px; width: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 5px; }
-    .meld-group { display: flex; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-    .meld-card { width: 26px; height: 38px; background: #fff; color: #000; border-radius: 4px; font-size: 10px; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: -10px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .table-melds { position: absolute; bottom: 5px; width: 100%; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 0 4px; }
+    .meld-group { display: flex; background: rgba(0,0,0,0.3); padding: 2px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+    .meld-card { width: 24px; height: 35px; background: #fff; color: #000; border-radius: 3px; font-size: 9px; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: -9px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     .meld-card:first-child { margin-left: 0; }
-
-    .hand-tools { display: flex; justify-content: center; gap: 10px; padding: 4px; background: #181818; border-top: 1px solid #333; }
-    .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; }
 
     .hand-wrapper {
       width: 100%;
-      padding: 15px 5px;
+      padding: 10px 2px;
       background: #141414;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
 
     .hand-row {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 85px;
+      min-height: 75px;
       width: 100%;
-      padding: 0 10px;
+      padding: 0 5px;
     }
 
-    /* نظام الكروت وتنسيق الإسقاط */
     .card {
-      width: 52px;
-      height: 80px;
+      width: 48px;
+      height: 72px;
       background: #ffffff;
       color: #111;
-      border-radius: 7px;
-      padding: 4px;
+      border-radius: 6px;
+      padding: 3px;
       font-weight: bold;
-      font-size: 14px;
-      box-shadow: -2px 0 6px rgba(0,0,0,0.3);
+      font-size: 13px;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.3);
       border: 1px solid #ccc;
       cursor: grab;
       position: relative;
@@ -91,7 +90,7 @@
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      margin-left: -16px;
+      margin-left: -18px;
       transition: transform 0.15s ease, margin 0.15s ease, opacity 0.15s ease;
       touch-action: none;
     }
@@ -100,34 +99,27 @@
     .card.red { color: #dc2626; }
     
     .card.selected { 
-      transform: translateY(-18px) !important; 
+      transform: translateY(-15px) !important; 
       border: 2px solid #f59e0b !important; 
-      box-shadow: 0 8px 16px rgba(245, 158, 11, 0.6) !important; 
+      box-shadow: 0 6px 12px rgba(245, 158, 11, 0.6) !important; 
       z-index: 100;
     }
 
     .card.meld-start, .card.meld-mid, .card.meld-end { border-top: 4px solid #10b981 !important; }
 
-    /* تأثير الكرت أثناء حمله وحركته بالأيدي */
-    .card.dragging {
-      opacity: 0.2;
-    }
+    .card.dragging { opacity: 0.2; }
+    .card.drop-target-left { border-left: 4px solid #3b82f6 !important; margin-left: 6px !important; }
 
-    .card.drop-target-left {
-      border-left: 4px solid #3b82f6 !important;
-      margin-left: 8px !important;
-    }
-
-    .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
-    .sum-box { font-size: 12px; color: #aaa; text-align: center; }
-    .sum-val { font-size: 16px; color: #fff; font-weight: bold; }
+    .bottom-bar { background: #000; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .sum-box { font-size: 11px; color: #aaa; text-align: center; }
+    .sum-val { font-size: 15px; color: #fff; font-weight: bold; }
     
-    .action-btns { display: flex; gap: 8px; }
-    .btn-action { color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
+    .action-btns { display: flex; gap: 6px; }
+    .btn-action { color: #fff; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; border: none; cursor: pointer; }
     .btn-discard { background: #dc2626; border: 1px solid #ef4444; }
     .btn-meld { background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); border: 1px solid #fde047; }
 
-    .error-toast { position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); color: #fff; padding: 12px 20px; border-radius: 10px; border: 1px solid #ef4444; font-weight: bold; font-size: 13px; z-index: 9999; text-align: center; display: none; }
+    .error-toast { position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); color: #fff; padding: 10px 16px; border-radius: 8px; border: 1px solid #ef4444; font-weight: bold; font-size: 12px; z-index: 9999; text-align: center; display: none; }
   </style>
 </head>
 <body>
@@ -135,18 +127,21 @@
   <div id="errorToast" class="error-toast">الورقة التي أضفتها خاطئة أو في المكان الخاطئ</div>
 
   <div class="screen" id="authScreen">
-    <h2 style="color:#f59e0b;">🃏 هاند سعودي</h2>
+    <h2 style="color:#f59e0b; margin-bottom: 10px;">🃏 هاند سعودي</h2>
     <input id="pName" type="text" placeholder="اسم اللاعب">
     <button id="createBtn">إنشاء غرفة جديدة</button>
-    <input id="rCode" type="text" placeholder="كود الغرفة" style="margin-top:20px;">
+    <input id="rCode" type="text" placeholder="كود الغرفة" style="margin-top:15px;">
     <button id="joinBtn" style="background:#10b981;">دخول الغرفة</button>
   </div>
 
   <div class="screen hidden" id="gameScreen" style="padding:0; justify-content:space-between;">
     <div class="top-bar">
-      <div class="room-info">غرفة: <span id="roomCodeDisp">----</span></div>
+      <div class="room-info">
+        غرفة: <span id="roomCodeDisp">----</span>
+        <button class="copy-btn" id="copyCodeBtn" onclick="copyRoomCode()">نسخ 📋</button>
+      </div>
       <button class="btn-start hidden" id="startBtn">🚀 ابدأ اللعبة</button>
-      <div style="font-size:12px; color:#aaa;" id="statusText">بانتظار اللاعبين...</div>
+      <div style="font-size:11px; color:#aaa;" id="statusText">بانتظار اللاعبين...</div>
     </div>
 
     <div class="table-felt">
@@ -159,17 +154,12 @@
         <div class="pile-box" id="deckPile" title="اضغط لسحب كرت">
           <div class="card-back"></div>
         </div>
-        <div class="pile-box" id="discardPile" title="النار / كروت المرمية">
+        <div class="pile-box" id="discardPile" title="ارمِ الكرت هنا">
           <span id="discardCard" style="font-weight:bold;">-</span>
         </div>
       </div>
 
       <div class="table-melds" id="tableMelds"></div>
-    </div>
-
-    <div class="hand-tools">
-      <button class="btn-tool" onclick="sortHand('value')">تصفيط أرقام 🔢</button>
-      <button class="btn-tool" onclick="sortHand('suit')">تصفيط أنواع ♠️♦️</button>
     </div>
 
     <div class="hand-wrapper" id="handWrapper">
@@ -231,9 +221,18 @@
       socket.emit("start-game", { code: roomCode });
     };
 
+    function copyRoomCode() {
+      if (!roomCode) return;
+      navigator.clipboard.writeText(roomCode);
+      const btn = document.getElementById("copyCodeBtn");
+      btn.textContent = "تم النسخ! ✅";
+      setTimeout(() => { btn.textContent = "نسخ 📋"; }, 2000);
+    }
+
     function showGame() {
       document.getElementById("authScreen").classList.add("hidden");
       document.getElementById("gameScreen").classList.remove("hidden");
+      setupDiscardDropZone();
     }
 
     socket.on("update-players", (players) => {
@@ -282,7 +281,6 @@
       const container = document.getElementById(rowId);
       container.innerHTML = "";
 
-      // إعداد الصف ليستقبل الكروت المرفوعة
       container.ondragover = (e) => e.preventDefault();
       container.ondrop = (e) => handleContainerDrop(e, rowId);
 
@@ -294,14 +292,12 @@
         div.draggable = true;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
-        // التحديد بزر الماوس/اللمس
         div.onclick = (e) => {
           e.stopPropagation();
           selectedCardId = isSelected ? null : card.id;
           renderHand();
         };
 
-        // أحداث السحب المباشر الفوري DND
         div.ondragstart = (e) => {
           draggedCardId = card.id;
           div.classList.add("dragging");
@@ -340,25 +336,45 @@
 
     function clearDropTargetStyles() {
       document.querySelectorAll('.card').forEach(c => c.classList.remove('drop-target-left'));
+      document.getElementById('discardPile').classList.remove('drag-over-discard');
     }
 
-    // نقل الكرت بدقة متناهية وإفلاته على اليسار
+    function setupDiscardDropZone() {
+      const discardBox = document.getElementById("discardPile");
+      
+      discardBox.ondragover = (e) => {
+        e.preventDefault();
+        if (isMyTurn && hasDrawn) {
+          discardBox.classList.add("drag-over-discard");
+        }
+      };
+
+      discardBox.ondragleave = () => {
+        discardBox.classList.remove("drag-over-discard");
+      };
+
+      discardBox.ondrop = (e) => {
+        e.preventDefault();
+        discardBox.classList.remove("drag-over-discard");
+        if (isMyTurn && hasDrawn && draggedCardId) {
+          executeDiscard(draggedCardId);
+        }
+      };
+    }
+
     function moveCardToBefore(sourceId, targetId, targetRowId) {
       const allCards = [...myHandRow1, ...myHandRow2];
       const sourceCard = allCards.find(c => c.id == sourceId);
 
       if (!sourceCard) return;
 
-      // إزالة الكرت المسحوب من مكانه الأصلي
       myHandRow1 = myHandRow1.filter(c => c.id != sourceId);
       myHandRow2 = myHandRow2.filter(c => c.id != sourceId);
 
-      // العثور على موقع الكرت الهدف (مثلاً الـ 2)
       const targetRow = targetRowId === "row1" ? myHandRow1 : myHandRow2;
       const targetIdx = targetRow.findIndex(c => c.id == targetId);
 
       if (targetIdx !== -1) {
-        // حشر الكرت تماماً على شمال الهدف
         targetRow.splice(targetIdx, 0, sourceCard);
       } else {
         targetRow.push(sourceCard);
@@ -395,10 +411,16 @@
       }
     }
 
-    document.getElementById("discardBtn").onclick = () => {
-      if (!selectedCardId || !isMyTurn || !hasDrawn) return;
-      socket.emit("discard-card", { roomCode, cardId: selectedCardId });
+    function executeDiscard(cardId) {
+      socket.emit("discard-card", { roomCode, cardId });
       selectedCardId = null;
+      draggedCardId = null;
+    }
+
+    document.getElementById("discardBtn").onclick = () => {
+      if (selectedCardId && isMyTurn && hasDrawn) {
+        executeDiscard(selectedCardId);
+      }
     };
 
     document.getElementById("deckPile").onclick = () => {
@@ -421,42 +443,62 @@
       let totalMeldSum = 0;
 
       [myHandRow1, myHandRow2].forEach(row => {
-        let currentGroup = [];
-
-        for (let i = 0; i < row.length; i++) {
-          const card = row[i];
-          const prevCard = row[i - 1];
-
-          if (isValidContinuation(prevCard, card)) {
-            if (currentGroup.length === 0) currentGroup.push(prevCard);
-            currentGroup.push(card);
+        let i = 0;
+        while (i < row.length) {
+          let mLen = findValidMeldLength(row, i);
+          if (mLen >= 3) {
+            let meldGroup = row.slice(i, i + mLen);
+            applyMeldBorder(meldGroup);
+            totalMeldSum += getGroupScore(meldGroup);
+            i += mLen;
           } else {
-            if (currentGroup.length >= 3) {
-              applyMeldBorder(currentGroup);
-              totalMeldSum += getGroupScore(currentGroup);
-            }
-            currentGroup = [];
+            i++;
           }
-        }
-
-        if (currentGroup.length >= 3) {
-          applyMeldBorder(currentGroup);
-          totalMeldSum += getGroupScore(currentGroup);
         }
       });
 
       document.getElementById("selectedSum").textContent = `${totalMeldSum}/51`;
     }
 
-    function isValidContinuation(prev, curr) {
-      if (!prev || !curr) return false;
-      if (prev.value === 'JOKER' || curr.value === 'JOKER') return true;
-      if (prev.value === curr.value) return true;
-
+    function findValidMeldLength(row, startIndex) {
       const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
-      if (prev.suit === curr.suit && valOrder[curr.value] === valOrder[prev.value] + 1) return true;
+      
+      for (let len = row.length - startIndex; len >= 3; len--) {
+        let sub = row.slice(startIndex, startIndex + len);
+        
+        let nonJokers = sub.filter(c => c.value !== 'JOKER');
+        if (nonJokers.length > 0) {
+          let firstVal = nonJokers[0].value;
+          let isSameSet = nonJokers.every(c => c.value === firstVal);
+          let suits = new Set(nonJokers.map(c => c.suit));
+          if (isSameSet && suits.size === nonJokers.length) return len;
+        }
 
-      return false;
+        if (nonJokers.length > 0) {
+          let targetSuit = nonJokers[0].suit;
+          let sameSuit = nonJokers.every(c => c.suit === targetSuit);
+          if (sameSuit) {
+            let isValidSequence = true;
+            let lastKnownVal = null;
+            let lastKnownIdx = -1;
+
+            for (let k = 0; k < sub.length; k++) {
+              if (sub[k].value !== 'JOKER') {
+                let currentValNum = valOrder[sub[k].value];
+                if (lastKnownVal !== null) {
+                  let diff = currentValNum - lastKnownVal;
+                  let expectedDiff = k - lastKnownIdx;
+                  if (diff !== expectedDiff) { isValidSequence = false; break; }
+                }
+                lastKnownVal = currentValNum;
+                lastKnownIdx = k;
+              }
+            }
+            if (isValidSequence) return len;
+          }
+        }
+      }
+      return 0;
     }
 
     function applyMeldBorder(cards) {
@@ -471,28 +513,20 @@
     }
 
     function getGroupScore(cards) {
-      return cards.reduce((sum, c) => {
-        if (c.value === 'A') return sum + 11;
-        if (['K','Q','J'].includes(c.value)) return sum + 10;
-        if (c.value === 'JOKER') return sum + 15;
-        return sum + (parseInt(c.value) || 0);
-      }, 0);
-    }
-
-    function sortHand(type) {
-      let fullHand = [...myHandRow1, ...myHandRow2];
-      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14, 'JOKER':15};
-      
-      if (type === 'value') {
-        fullHand.sort((a, b) => (valOrder[a.value] || 0) - (valOrder[b.value] || 0));
-      } else if (type === 'suit') {
-        fullHand.sort((a, b) => a.suit.localeCompare(b.suit) || (valOrder[a.value] || 0) - (valOrder[b.value] || 0));
-      }
-
-      const half = Math.ceil(fullHand.length / 2);
-      myHandRow1 = fullHand.slice(0, half);
-      myHandRow2 = fullHand.slice(half);
-      renderHand();
+      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+      let realSum = 0;
+      cards.forEach((c, i) => {
+        if (c.value === 'A') realSum += 11;
+        else if (['K','Q','J'].includes(c.value)) realSum += 10;
+        else if (c.value !== 'JOKER') realSum += (parseInt(c.value) || 0);
+        else {
+          let prev = cards[i-1], next = cards[i+1];
+          if (prev && prev.value !== 'JOKER') realSum += ((valOrder[prev.value] || 0) + 1);
+          else if (next && next.value !== 'JOKER') realSum += Math.max(1, ((valOrder[next.value] || 0) - 1));
+          else realSum += 10;
+        }
+      });
+      return realSum;
     }
 
     document.getElementById("meldBtn").onclick = () => {
