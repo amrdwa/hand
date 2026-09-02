@@ -191,7 +191,7 @@
     let isMyTurn = false, hasDrawn = false;
     let draggedCardId = null;
 
-    // تم إصلاح زر إنشاء الغرفة ليرسل للحدث الصحيح بالسيرفر
+    // تم إرجاع طريقة الإنشاء الأساسية تماماً كما كانت تعمل بدون تعقيد
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
       if (!name) return alert("ادخل اسمك");
@@ -201,8 +201,17 @@
           document.getElementById("roomCodeDisp").textContent = roomCode;
           document.getElementById("startBtn").classList.remove("hidden");
           showGame(); 
-        } else {
-          alert(res ? res.message : "فشل إنشاء الغرفة");
+        } else if(res && res.code) {
+          // لدعم النسخ القديمة التي ترجع الكود مباشرة كسترينغ أو كائن
+          roomCode = res.code;
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          document.getElementById("startBtn").classList.remove("hidden");
+          showGame();
+        } else if(typeof res === 'string') {
+          roomCode = res;
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          document.getElementById("startBtn").classList.remove("hidden");
+          showGame();
         }
       });
     };
@@ -212,12 +221,12 @@
       const code = document.getElementById("rCode").value.trim();
       if(!name || !code) return alert("ادخل الاسم وكود الغرفة");
       socket.emit("join-room", { name, code }, (res) => {
-        if(res && res.success) { 
+        if(res === true || (res && res.success)) { 
           roomCode = code; 
           document.getElementById("roomCodeDisp").textContent = roomCode;
           showGame(); 
         } else {
-          showError(res ? res.message : "فشل الانضمام");
+          showError(res && res.message ? res.message : "فشل الانضمام");
         }
       });
     };
@@ -349,7 +358,6 @@
           if (draggedCardId && draggedCardId !== card.id) {
             const rect = div.getBoundingClientRect();
             const offsetX = e.clientX - rect.left;
-            // إذا أفلتته على النصف الأيمن يتم إدراجه قبله تماماً (على شماله في RTL)
             const insertBefore = offsetX > (rect.width / 2);
             moveCardToTargetWithPrecision(draggedCardId, card.id, rowId, insertBefore);
           }
@@ -521,4 +529,42 @@
     }
 
     function getGroupScore(cards) {
-      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, '
+      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+      let realSum = 0;
+      cards.forEach((c, i) => {
+        if (c.value === 'A') realSum += 11;
+        else if (['K','Q','J'].includes(c.value)) realSum += 10;
+        else if (c.value !== 'JOKER') realSum += (parseInt(c.value) || 0);
+        else {
+          let prev = cards[i-1], next = cards[i+1];
+          if (prev && prev.value !== 'JOKER') realSum += ((valOrder[prev.value] || 0) + 1);
+          else if (next && next.value !== 'JOKER') realSum += Math.max(1, ((valOrder[next.value] || 0) - 1));
+          else realSum += 10;
+        }
+      });
+      return realSum;
+    }
+
+    document.getElementById("meldBtn").onclick = () => {
+      if (!selectedCardId) return;
+      socket.emit("meld-cards", { roomCode, cardIds: [selectedCardId] });
+    };
+
+    function renderTableMelds(melds) {
+      const container = document.getElementById("tableMelds");
+      container.innerHTML = "";
+      melds.forEach(group => {
+        const groupDiv = document.createElement("div");
+        groupDiv.className = "meld-group";
+        group.forEach(card => {
+          const cDiv = document.createElement("div");
+          cDiv.className = `meld-card ${card.color}`;
+          cDiv.innerHTML = `<span>${card.value}</span><span>${card.suit}</span>`;
+          groupDiv.appendChild(cDiv);
+        });
+        container.appendChild(groupDiv);
+      });
+    }
+  </script>
+</body>
+</html>
