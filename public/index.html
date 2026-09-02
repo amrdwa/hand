@@ -186,7 +186,7 @@
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
     let draggedCardId = null;
-    let isInitialDeal = true; // للتحقق من أول توزيعة كروت
+    let isInitialDeal = true;
 
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
@@ -239,20 +239,17 @@
 
     socket.on("your-hand", (hand) => {
       if (isInitialDeal || (myHandRow1.length === 0 && myHandRow2.length === 0)) {
-        // التوزيعة الأولى أو إذا كانت اليد فارغة
         const half = Math.ceil(hand.length / 2);
         myHandRow1 = hand.slice(0, half);
         myHandRow2 = hand.slice(half);
         isInitialDeal = false;
       } else {
-        // عند سحب كرت جديد: دمج الكرت الجديد فقط كأول كرت دون تخريب الترتيب الحالي
         const currentAllIds = new Set([...myHandRow1, ...myHandRow2].map(c => c.id));
         const newCard = hand.find(c => !currentAllIds.has(c.id));
         
         if (newCard) {
-          myHandRow1.unshift(newCard); // إضافته كأول كرت بالصف الأول مباشرة
+          myHandRow1.unshift(newCard);
         } else {
-          // احتياطياً في حال تغيرت القائمة كاملة لأسباب أخرى
           const half = Math.ceil(hand.length / 2);
           myHandRow1 = hand.slice(0, half);
           myHandRow2 = hand.slice(half);
@@ -484,7 +481,7 @@
         let sub = row.slice(startIndex, startIndex + len);
         let nonJokers = sub.filter(c => c.value !== 'JOKER');
         
-        // 1. فحص المجموعات المتشابهة (Sets - مثل 3 أو 4 أولاد J أو أرقام متشابهة) بدقة
+        // 1. فحص المجموعات المتشابهة (Sets)
         if (nonJokers.length > 0) {
           let firstVal = nonJokers[0].value;
           let isSameSet = nonJokers.every(c => c.value === firstVal);
@@ -494,32 +491,38 @@
           }
         }
 
-        // 2. فحص السلاسل (Runs - تسلسل أوراق نفس النوع)
+        // 2. فحص السلاسل (Runs) - تدعم الاتجاهين (تصاعدي أو تنازلي) مع الجوكر
         if (nonJokers.length > 0) {
           let targetSuit = nonJokers[0].suit;
           let sameSuit = nonJokers.every(c => c.suit === targetSuit);
           if (sameSuit) {
-            let isValidSequence = true;
-            let lastKnownVal = null;
-            let lastKnownIdx = -1;
-
-            for (let k = 0; k < sub.length; k++) {
-              if (sub[k].value !== 'JOKER') {
-                let currentValNum = valOrder[sub[k].value];
-                if (lastKnownVal !== null) {
-                  let diff = currentValNum - lastKnownVal;
-                  let expectedDiff = k - lastKnownIdx;
-                  if (diff !== expectedDiff) { isValidSequence = false; break; }
-                }
-                lastKnownVal = currentValNum;
-                lastKnownIdx = k;
-              }
+            if (isValidRunDirection(sub, valOrder, 1) || isValidRunDirection(sub, valOrder, -1)) {
+              return len;
             }
-            if (isValidSequence) return len;
           }
         }
       }
       return 0;
+    }
+
+    function isValidRunDirection(sub, valOrder, step) {
+      let lastVal = null;
+      let lastIdx = -1;
+
+      for (let k = 0; k < sub.length; k++) {
+        if (sub[k].value !== 'JOKER') {
+          let currentVal = valOrder[sub[k].value];
+          if (lastVal !== null) {
+            let expectedVal = lastVal + (step * (k - lastIdx));
+            if (currentVal !== expectedVal) {
+              return false;
+            }
+          }
+          lastVal = currentVal;
+          lastIdx = k;
+        }
+      }
+      return true;
     }
 
     function applyMeldBorder(cards) {
