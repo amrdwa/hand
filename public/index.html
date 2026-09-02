@@ -244,15 +244,37 @@
         myHandRow2 = hand.slice(half);
         isInitialDeal = false;
       } else {
-        const currentAllIds = new Set([...myHandRow1, ...myHandRow2].map(c => c.id));
-        const newCard = hand.find(c => !currentAllIds.has(c.id));
-        
-        if (newCard) {
-          myHandRow1.unshift(newCard);
-        } else {
-          const half = Math.ceil(hand.length / 2);
-          myHandRow1 = hand.slice(0, half);
-          myHandRow2 = hand.slice(half);
+        // جمع كل الكروت الموجودة حالياً عندك باليد مع معرفاتها
+        const currentCardsMap = new Map();
+        [...myHandRow1, ...myHandRow2].forEach(c => currentCardsMap.set(c.id, c));
+
+        // فحص الكروت الجديدة والقديمة بناءً على الـ IDs
+        const newCards = hand.filter(c => !currentCardsMap.has(c.id));
+        const keptCardsMap = new Map();
+        hand.forEach(c => {
+          if (currentCardsMap.has(c.id)) {
+            keptCardsMap.set(c.id, currentCardsMap.get(c.id));
+          }
+        });
+
+        // الحفاظ على صفوفك الحالية وترتيبها تماماً، وإضافة الكرت الجديد بسلاسة دون خربطة
+        myHandRow1 = myHandRow1.map(c => keptCardsMap.get(c.id)).filter(Boolean);
+        myHandRow2 = myHandRow2.map(c => keptCardsMap.get(c.id)).filter(Boolean);
+
+        // إذا سحبنا كرت جديد، بنحطه بأول صف اليد بدون ما نلعب بترتيب الباقي
+        newCards.forEach(nc => {
+          myHandRow1.unshift(nc);
+        });
+
+        // لو صار نقص أو توزيع غريب بنوزع الباقي بالصف الثاني
+        const totalAssigned = myHandRow1.length + myHandRow2.length;
+        if (totalAssigned < hand.length) {
+          const assignedIds = new Set([...myHandRow1, ...myHandRow2].map(c => c.id));
+          hand.forEach(c => {
+            if (!assignedIds.has(c.id)) {
+              myHandRow2.push(c);
+            }
+          });
         }
       }
       
@@ -553,7 +575,6 @@
       return realSum;
     }
 
-    // التعديل هنا: زر "انزل" يجمع كل الكروت التي تحمل حدود الملدات الصحيحة ويرسلها دفعة واحدة
     document.getElementById("meldBtn").onclick = () => {
       const validMeldCards = document.querySelectorAll('.card.meld-start, .card.meld-mid, .card.meld-end');
       
