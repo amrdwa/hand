@@ -9,18 +9,32 @@
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #121212; color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
 
-    /* شاشة التسجيل */
+    /* شاشة الدخول */
     .screen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
     .hidden { display: none !important; }
     input, button { width: 100%; max-width: 320px; padding: 14px; margin-top: 10px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; }
     button { background: #d97706; color: #fff; cursor: pointer; }
+
+    /* شريط المعلومات العلوي */
+    .top-bar {
+      width: 100%;
+      background: #1e1e1e;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #333;
+      z-index: 10;
+    }
+    .room-info { font-size: 14px; font-weight: bold; color: #f59e0b; }
+    .btn-start { background: #10b981; padding: 6px 15px; width: auto; margin: 0; font-size: 14px; border-radius: 6px; }
 
     /* الطاولة الخضراء */
     .table-felt {
       position: relative;
       width: 92%;
       max-width: 420px;
-      height: 52vh;
+      height: 48vh;
       margin: 10px auto 0 auto;
       background: radial-gradient(circle, #347838 0%, #17421a 100%);
       border: 6px solid #4a4a4a;
@@ -29,8 +43,8 @@
     }
 
     /* منطقة الخصم العليا */
-    .opponent-area { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); text-align: center; }
-    .avatar { width: 50px; height: 50px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin: 0 auto; }
+    .opponent-area { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); text-align: center; }
+    .avatar { width: 45px; height: 45px; border-radius: 50%; background: #333; border: 2px solid #eab308; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin: 0 auto; }
     .player-name { background: rgba(0,0,0,0.7); padding: 2px 10px; border-radius: 10px; font-size: 11px; margin-top: 2px; }
 
     /* الكوم والساحة بمنتصف الطاولة */
@@ -79,7 +93,7 @@
     .sum-val { font-size: 18px; color: #fff; font-weight: bold; }
     .btn-meld { background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); color: #fff; width: 120px; padding: 10px; border-radius: 8px; font-size: 16px; font-weight: bold; border: 1px solid #fde047; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); }
 
-    /* رسائل الخطأ والتنبيهات popup */
+    /* رسائل الخطأ والتنبيهات */
     .error-toast { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: #fff; padding: 15px 25px; border-radius: 12px; border: 1px solid #ef4444; font-weight: bold; font-size: 14px; z-index: 9999; text-align: center; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
   </style>
 </head>
@@ -100,6 +114,13 @@
   <!-- شاشة اللعبة -->
   <div class="screen hidden" id="gameScreen" style="padding:0; justify-content:space-between;">
     
+    <!-- الشريط العلوي لشاشة اللعبة -->
+    <div class="top-bar">
+      <div class="room-info">غرفة: <span id="roomCodeDisp">----</span></div>
+      <button class="btn-start hidden" id="startBtn">🚀 ابدأ اللعبة</button>
+      <div style="font-size:12px; color:#aaa;" id="statusText">بانتظار اللاعبين...</div>
+    </div>
+
     <!-- الطاولة -->
     <div class="table-felt">
       <div class="opponent-area">
@@ -145,22 +166,37 @@
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
 
-    // الدخول وتجهيز الغرف
+    // إنشاء غرفة
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
-      if (!name) return;
+      if (!name) return alert("ادخل اسمك");
       socket.emit("create-room", { name }, (res) => {
-        if(res.success) { roomCode = res.code; showGame(); }
+        if(res.success) { 
+          roomCode = res.code; 
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          document.getElementById("startBtn").classList.remove("hidden");
+          showGame(); 
+        }
       });
     };
 
+    // دخول غرفة
     document.getElementById("joinBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
       const code = document.getElementById("rCode").value.trim();
-      if(!name || !code) return;
+      if(!name || !code) return alert("ادخل الاسم وكود الغرفة");
       socket.emit("join-room", { name, code }, (res) => {
-        if(res.success) { roomCode = code; showGame(); } else showError(res.message);
+        if(res.success) { 
+          roomCode = code; 
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          showGame(); 
+        } else showError(res.message);
       });
+    };
+
+    // زر ابدأ اللعبة
+    document.getElementById("startBtn").onclick = () => {
+      socket.emit("start-game", { code: roomCode });
     };
 
     function showGame() {
@@ -168,9 +204,16 @@
       document.getElementById("gameScreen").classList.remove("hidden");
     }
 
-    // استقبال تحديث اليد
+    // استقبال اللاعبين
+    socket.on("update-players", (players) => {
+      const opp = players.find(p => p.id !== socket.id);
+      if (opp) {
+        document.getElementById("oppName").textContent = opp.name;
+      }
+    });
+
+    // استقبال اليد من السيرفر وتوزيعها على الصفين
     socket.on("your-hand", (hand) => {
-      // تقسيم 14/15 كرت على صفين متساويين
       const half = Math.ceil(hand.length / 2);
       myHandRow1 = hand.slice(0, half);
       myHandRow2 = hand.slice(half);
@@ -179,10 +222,13 @@
       renderHand();
     });
 
-    // استقبال التحديثات من الخادم
+    // استقبال حالة اللعبة
     socket.on("game-state", (state) => {
       isMyTurn = state.turnPlayerId === socket.id;
       hasDrawn = state.hasDrawn;
+      document.getElementById("startBtn").classList.add("hidden");
+      document.getElementById("statusText").textContent = isMyTurn ? "🟢 دورك" : `🔴 دور: ${state.turnPlayerName}`;
+
       if (state.discardTop) {
         document.getElementById("discardCard").innerHTML = `<span class="${state.discardTop.color}">${state.discardTop.value}${state.discardTop.suit}</span>`;
       }
@@ -198,7 +244,7 @@
       setTimeout(() => { toast.style.display = "none"; }, 2500);
     }
 
-    // رندر اليد مع السحب والنقر للتحديد
+    // رندر اليد
     function renderHand() {
       renderRow("row1", myHandRow1);
       renderRow("row2", myHandRow2);
@@ -213,7 +259,6 @@
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
-        // النقر للتحديد لحساب المجموع والتنزيل
         div.onclick = (e) => {
           e.stopPropagation();
           if (selectedCards.has(card.id)) selectedCards.delete(card.id);
@@ -225,20 +270,18 @@
         container.appendChild(div);
       });
 
-      // تفعيل السحب والترتيب الذكي بين الصفين
       new Sortable(container, {
         group: 'hand',
         animation: 200,
         ghostClass: 'card-ghost',
         dragClass: 'card-drag',
-        onEnd: function (evt) {
+        onEnd: function () {
           syncHandState();
         }
       });
     }
 
     function syncHandState() {
-      // مزامنة الترتيب بعد السحب بين الصفوف
       const getCardsFromEl = (id) => Array.from(document.getElementById(id).children).map(el => {
         const id = el.dataset.id;
         return [...myHandRow1, ...myHandRow2].find(c => c.id == id);
@@ -263,13 +306,13 @@
       document.getElementById("selectedSum").textContent = `${sum}/51`;
     }
 
-    // تنزيل المجموعة المختارة
+    // زر انزل
     document.getElementById("meldBtn").onclick = () => {
       if (selectedCards.size === 0) return;
       socket.emit("meld-cards", { roomCode, cardIds: Array.from(selectedCards) });
     };
 
-    // السحب من الكوم والساحة
+    // السحب
     document.getElementById("deckPile").onclick = () => {
       if (isMyTurn && !hasDrawn) socket.emit("draw-card", { roomCode, fromDiscard: false });
     };
