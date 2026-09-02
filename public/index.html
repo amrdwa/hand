@@ -244,11 +244,9 @@
         myHandRow2 = hand.slice(half);
         isInitialDeal = false;
       } else {
-        // جمع كل الكروت الموجودة حالياً عندك باليد مع معرفاتها
         const currentCardsMap = new Map();
         [...myHandRow1, ...myHandRow2].forEach(c => currentCardsMap.set(c.id, c));
 
-        // فحص الكروت الجديدة والقديمة بناءً على الـ IDs
         const newCards = hand.filter(c => !currentCardsMap.has(c.id));
         const keptCardsMap = new Map();
         hand.forEach(c => {
@@ -257,16 +255,13 @@
           }
         });
 
-        // الحفاظ على صفوفك الحالية وترتيبها تماماً، وإضافة الكرت الجديد بسلاسة دون خربطة
         myHandRow1 = myHandRow1.map(c => keptCardsMap.get(c.id)).filter(Boolean);
         myHandRow2 = myHandRow2.map(c => keptCardsMap.get(c.id)).filter(Boolean);
 
-        // إذا سحبنا كرت جديد، بنحطه بأول صف اليد بدون ما نلعب بترتيب الباقي
         newCards.forEach(nc => {
           myHandRow1.unshift(nc);
         });
 
-        // لو صار نقص أو توزيع غريب بنوزع الباقي بالصف الثاني
         const totalAssigned = myHandRow1.length + myHandRow2.length;
         if (totalAssigned < hand.length) {
           const assignedIds = new Set([...myHandRow1, ...myHandRow2].map(c => c.id));
@@ -477,6 +472,7 @@
       });
 
       let totalMeldSum = 0;
+      let validCardIds = new Set();
 
       [myHandRow1, myHandRow2].forEach(row => {
         let i = 0;
@@ -484,12 +480,19 @@
           let mLen = findValidMeldLength(row, i);
           if (mLen >= 3) {
             let meldGroup = row.slice(i, i + mLen);
-            applyMeldBorder(meldGroup);
+            meldGroup.forEach(c => validCardIds.add(c.id));
             totalMeldSum += getGroupScore(meldGroup);
             i += mLen;
           } else {
             i++;
           }
+        }
+      });
+
+      validCardIds.forEach(id => {
+        const el = document.querySelector(`[data-id="${id}"]`);
+        if (el) {
+          el.classList.add('meld-mid');
         }
       });
 
@@ -503,7 +506,6 @@
         let sub = row.slice(startIndex, startIndex + len);
         let nonJokers = sub.filter(c => c.value !== 'JOKER');
         
-        // 1. فحص المجموعات المتشابهة (Sets)
         if (nonJokers.length > 0) {
           let firstVal = nonJokers[0].value;
           let isSameSet = nonJokers.every(c => c.value === firstVal);
@@ -513,7 +515,6 @@
           }
         }
 
-        // 2. فحص السلاسل (Runs) - تدعم الاتجاهين (تصاعدي أو تنازلي) مع الجوكر
         if (nonJokers.length > 0) {
           let targetSuit = nonJokers[0].suit;
           let sameSuit = nonJokers.every(c => c.suit === targetSuit);
@@ -547,17 +548,6 @@
       return true;
     }
 
-    function applyMeldBorder(cards) {
-      cards.forEach((card, idx) => {
-        const el = document.querySelector(`[data-id="${card.id}"]`);
-        if (el) {
-          if (idx === 0) el.classList.add('meld-start');
-          else if (idx === cards.length - 1) el.classList.add('meld-end');
-          else el.classList.add('meld-mid');
-        }
-      });
-    }
-
     function getGroupScore(cards) {
       const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
       let realSum = 0;
@@ -576,7 +566,7 @@
     }
 
     document.getElementById("meldBtn").onclick = () => {
-      const validMeldCards = document.querySelectorAll('.card.meld-start, .card.meld-mid, .card.meld-end');
+      const validMeldCards = document.querySelectorAll('.card.meld-mid');
       
       if (validMeldCards.length === 0) {
         showError("لا توجد مجموعات صحيحة للنزول بها (يجب أن تكون 3 كروت على الأقل ومجموعها 51+)");
