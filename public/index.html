@@ -3,40 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>هاند سعودي - جواكر</title>
-  <!-- مكتبة السحب والتصفط الحر -->
+  <title>هاند سعودي - نظام جواكر</title>
+  <!-- مكتبة معالجة السحب والانزلاق الاحترافية مثل التطبيقات -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: system-ui, sans-serif; user-select: none; }
-    body { margin: 0; background: #0b3818; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; }
-    .screen { width: 100%; max-width: 600px; padding: 15px; text-align: center; }
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: #0b3818; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; touch-action: manipulation; }
+    
+    .screen { width: 100%; max-width: 650px; padding: 10px; text-align: center; }
     .hidden { display: none !important; }
     
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 10px; border: none; font-weight: bold; font-size: 16px; }
     button { background: #2563eb; color: white; cursor: pointer; }
 
-    .players-box { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 10px; margin: 10px 0; border: 1px solid rgba(255,255,255,0.2); }
+    .players-box { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 10px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.2); }
     .player-tag { display: inline-block; background: #1e3a8a; padding: 4px 10px; border-radius: 20px; margin: 2px; font-size: 13px; font-weight: bold; }
 
-    .table-area { display: flex; justify-content: center; gap: 20px; margin: 20px 0; align-items: center; }
-    .pile { width: 75px; height: 105px; border: 2px dashed rgba(255,255,255,0.4); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; background: rgba(0,0,0,0.3); cursor: pointer; transition: 0.2s; }
+    .table-area { display: flex; justify-content: center; gap: 30px; margin: 15px 0; align-items: center; }
+    .pile { width: 80px; height: 110px; border: 2px dashed rgba(255,255,255,0.4); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; background: rgba(0,0,0,0.3); cursor: pointer; transition: 0.2s; position: relative; }
+    .pile.drag-over { border-color: #facc15; background: rgba(250, 204, 21, 0.25); transform: scale(1.05); }
 
-    .card {
-      width: 52px; height: 80px; background: #fff; color: #111;
-      border-radius: 8px; display: inline-flex; flex-direction: column; justify-content: space-between;
-      padding: 4px; font-weight: bold; font-size: 14px; box-shadow: -2px 3px 6px rgba(0,0,0,0.4);
-      position: relative; border: 2px solid #ccc; cursor: grab; margin-left: -22px; touch-action: none;
+    /* منطقة يد اللاعب - نظام جواكر */
+    .hand-container {
+      width: 100%;
+      background: rgba(0,0,0,0.45);
+      border-radius: 20px 20px 0 0;
+      padding: 30px 10px 15px 10px;
+      min-height: 140px;
+      border-top: 2px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
     }
-    .card.red { color: #dc2626; }
-    .card.selected { transform: translateY(-15px); border-color: #facc15 !important; }
 
     .hand-tray {
-      display: flex; justify-content: center; align-items: flex-end;
-      padding: 25px 15px 15px 35px; min-height: 130px; overflow-x: auto;
-      background: rgba(0,0,0,0.4); border-radius: 20px; width: 100%; margin-top: 10px;
+      display: flex;
+      align-items: flex-end;
+      min-width: 100%;
+      min-height: 100px;
+      padding-left: 20px;
     }
 
-    .status-box { background: rgba(0,0,0,0.5); padding: 8px; border-radius: 8px; font-weight: bold; color: #facc15; margin-bottom: 10px; }
+    /* تصميم الكرت العائم للتصفط */
+    .card {
+      width: 52px;
+      height: 82px;
+      background: #ffffff;
+      color: #111;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px;
+      font-weight: bold;
+      font-size: 15px;
+      box-shadow: -3px 4px 8px rgba(0,0,0,0.5);
+      position: relative;
+      border: 1px solid #bbb;
+      margin-left: -24px; /* تداخل الكروت مثل جواكر */
+      cursor: grab;
+      transition: transform 0.1s ease, margin 0.15s ease;
+      background-clip: padding-box;
+    }
+
+    .card.red { color: #dc2626; }
+    
+    /* عند حمل الكرت بالسحب */
+    .card-ghost {
+      opacity: 0.2;
+      background: #facc15 !important;
+      border: 2px dashed #000;
+    }
+
+    .card-chosen {
+      transform: translateY(-20px) scale(1.08) !important;
+      z-index: 999 !important;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+    }
+
+    .status-box { background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; font-weight: bold; color: #facc15; margin-bottom: 5px; }
   </style>
 </head>
 <body>
@@ -50,7 +95,7 @@
     <button id="joinBtn" style="background:#059669;">🔑 دخول</button>
   </div>
 
-  <!-- شاشة الانتظار واللعب -->
+  <!-- شاشة اللعب -->
   <div class="screen hidden" id="gameScreen">
     <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:5px;">
       <span>غرفة: <span id="roomCodeDisp"></span></span>
@@ -58,7 +103,6 @@
     </div>
 
     <div class="players-box">
-      <div style="font-size:12px; color:#aaa; margin-bottom:5px;">اللاعبون المتواجدون:</div>
       <div id="playersList">...</div>
     </div>
 
@@ -66,6 +110,7 @@
     <button id="startBtn" class="hidden" style="background:#f59e0b; color:#000;">🚀 ابدأ اللعبة</button>
 
     <div id="playArea" class="hidden">
+      <!-- طاولة السحب والرمي -->
       <div class="table-area">
         <div class="pile" id="deckPile">
           <div>الكوم</div>
@@ -77,8 +122,10 @@
         </div>
       </div>
 
-      <!-- يد اللاعب للترتيب بالكامل -->
-      <div class="hand-tray" id="handTray"></div>
+      <!-- منطقة اليد بالتصفيط الحر -->
+      <div class="hand-container">
+        <div class="hand-tray" id="handTray"></div>
+      </div>
     </div>
   </div>
 
@@ -87,10 +134,9 @@
     const socket = io();
     let myHand = [];
     let roomCode = "";
-    let selectedCardId = null;
     let isMyTurnGlobal = false;
     let hasDrawnGlobal = false;
-    let sortableInstance = null;
+    let sortableHand = null;
 
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
@@ -154,51 +200,66 @@
       }
 
       if (isMyTurnGlobal) {
-        turnStatus.textContent = hasDrawnGlobal ? "🟢 دورك! اضغط كرت لرفعه ثم اضغط الساحة لرميه" : "🟢 دورك! اضغط الكوم أو الساحة للسحب";
+        turnStatus.textContent = hasDrawnGlobal ? "🟢 دورك! اسحب الكرت وارمهِ فوق الساحة" : "🟢 دورك! اضغط الكوم أو الساحة للسحب";
       } else {
         turnStatus.textContent = `🔴 دور: ${state.turnPlayerName}`;
       }
     });
 
+    // السحب بالضغط
     document.getElementById("deckPile").onclick = () => {
       if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: false });
     };
-
     document.getElementById("discardPile").onclick = () => {
-      if (isMyTurnGlobal && !hasDrawnGlobal) {
-        socket.emit("draw-card", { fromDiscard: true });
-      } else if (isMyTurnGlobal && hasDrawnGlobal && selectedCardId) {
-        socket.emit("discard-card", { cardId: selectedCardId });
-        selectedCardId = null;
-      }
+      if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: true });
     };
 
+    // بناء اليد وتفعيل محاكي جواكر للترتيب والسحب
     function renderHand() {
       const tray = document.getElementById("handTray");
       tray.innerHTML = "";
 
       myHand.forEach((card) => {
         const div = document.createElement("div");
-        div.className = `card ${card.color} ${selectedCardId === card.id ? 'selected' : ''}`;
+        div.className = `card ${card.color}`;
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
-
-        div.onclick = () => {
-          selectedCardId = (selectedCardId === card.id) ? null : card.id;
-          renderHand();
-        };
-
         tray.appendChild(div);
       });
 
-      // تفعيل السحب والترتيب الحر بالماوس واللمس
-      if (sortableInstance) sortableInstance.destroy();
-      sortableInstance = new Sortable(tray, {
-        animation: 150,
-        ghostClass: 'dragging',
+      // تفعيل محرك الترتيب باللمس والماوس (Drag & Drop + Reorder)
+      if (sortableHand) sortableHand.destroy();
+
+      sortableHand = new Sortable(tray, {
+        animation: 200,
+        ghostClass: 'card-ghost',
+        chosenClass: 'card-chosen',
+        dragClass: 'card-chosen',
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
         onEnd: function (evt) {
+          // تحديث ترتيب الكروت في الذاكرة بعد سحبها
           const movedCard = myHand.splice(evt.oldIndex, 1)[0];
           myHand.splice(evt.newIndex, 0, movedCard);
+
+          // إذا تم سحب الكرت وإسقاطه فوق منطقة "الساحة" لرميه
+          const discardRect = document.getElementById("discardPile").getBoundingClientRect();
+          const touchEvt = evt.originalEvent.changedTouches ? evt.originalEvent.changedTouches[0] : evt.originalEvent;
+          const mouseX = touchEvt.clientX;
+          const mouseY = touchEvt.clientY;
+
+          if (
+            mouseX >= discardRect.left &&
+            mouseX <= discardRect.right &&
+            mouseY >= discardRect.top &&
+            mouseY <= discardRect.bottom
+          ) {
+            if (isMyTurnGlobal && hasDrawnGlobal) {
+              socket.emit("discard-card", { cardId: movedCard.id });
+            } else {
+              renderHand(); // إرجاع الكرت إذا لم يكن دوره
+            }
+          }
         }
       });
     }
