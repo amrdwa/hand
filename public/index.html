@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>هاند سعودي - نظام جواكر</title>
-  <!-- مكتبة معالجة السحب والانزلاق الاحترافية مثل التطبيقات -->
+  <title>هاند سعودي - جواكر</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; background: #0b3818; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; touch-action: manipulation; }
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; user-select: none; }
+    body { margin: 0; background: #0b3818; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; }
     
-    .screen { width: 100%; max-width: 650px; padding: 10px; text-align: center; }
+    .screen { width: 100%; max-width: 700px; padding: 10px; text-align: center; }
     .hidden { display: none !important; }
     
     input, button { width: 100%; padding: 12px; margin-top: 8px; border-radius: 10px; border: none; font-weight: bold; font-size: 16px; }
@@ -20,65 +19,63 @@
     .player-tag { display: inline-block; background: #1e3a8a; padding: 4px 10px; border-radius: 20px; margin: 2px; font-size: 13px; font-weight: bold; }
 
     .table-area { display: flex; justify-content: center; gap: 30px; margin: 15px 0; align-items: center; }
-    .pile { width: 80px; height: 110px; border: 2px dashed rgba(255,255,255,0.4); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; background: rgba(0,0,0,0.3); cursor: pointer; transition: 0.2s; position: relative; }
-    .pile.drag-over { border-color: #facc15; background: rgba(250, 204, 21, 0.25); transform: scale(1.05); }
+    .pile { width: 80px; height: 110px; border: 2px dashed rgba(255,255,255,0.4); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; background: rgba(0,0,0,0.3); cursor: pointer; transition: 0.2s; }
 
-    /* منطقة يد اللاعب - نظام جواكر */
+    /* منطقة يد اللاعب المصممة بدقة للترتيب */
     .hand-container {
       width: 100%;
-      background: rgba(0,0,0,0.45);
+      background: rgba(0,0,0,0.5);
       border-radius: 20px 20px 0 0;
-      padding: 30px 10px 15px 10px;
-      min-height: 140px;
-      border-top: 2px solid rgba(255,255,255,0.1);
+      padding: 20px 10px;
+      min-height: 150px;
+      border-top: 2px solid rgba(255,255,255,0.15);
       display: flex;
       justify-content: center;
-      align-items: flex-end;
+      align-items: center;
+      overflow-x: auto;
     }
 
     .hand-tray {
       display: flex;
-      align-items: flex-end;
-      min-width: 100%;
-      min-height: 100px;
-      padding-left: 20px;
+      align-items: center;
+      gap: 3px; /* مسافة واضحة بين الكروت لمنع التداخل الخاطئ */
+      padding: 10px 20px;
+      min-width: max-content;
     }
 
-    /* تصميم الكرت العائم للتصفط */
     .card {
-      width: 52px;
-      height: 82px;
+      width: 48px;
+      height: 78px;
       background: #ffffff;
       color: #111;
-      border-radius: 8px;
+      border-radius: 6px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 5px;
+      padding: 4px;
       font-weight: bold;
-      font-size: 15px;
-      box-shadow: -3px 4px 8px rgba(0,0,0,0.5);
-      position: relative;
-      border: 1px solid #bbb;
-      margin-left: -24px; /* تداخل الكروت مثل جواكر */
+      font-size: 14px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+      border: 1px solid #ccc;
       cursor: grab;
-      transition: transform 0.1s ease, margin 0.15s ease;
-      background-clip: padding-box;
+      transition: transform 0.15s ease;
+      position: relative;
     }
 
     .card.red { color: #dc2626; }
-    
-    /* عند حمل الكرت بالسحب */
+
+    /* الفراغ الذي يظهر بين الكروت أثناء السحب لتحديد مكان الإسقاط بدقة */
     .card-ghost {
-      opacity: 0.2;
+      opacity: 0.3;
       background: #facc15 !important;
       border: 2px dashed #000;
+      width: 48px !important;
     }
 
     .card-chosen {
-      transform: translateY(-20px) scale(1.08) !important;
-      z-index: 999 !important;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+      transform: scale(1.15) translateY(-10px);
+      z-index: 100;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.6);
     }
 
     .status-box { background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; font-weight: bold; color: #facc15; margin-bottom: 5px; }
@@ -110,7 +107,6 @@
     <button id="startBtn" class="hidden" style="background:#f59e0b; color:#000;">🚀 ابدأ اللعبة</button>
 
     <div id="playArea" class="hidden">
-      <!-- طاولة السحب والرمي -->
       <div class="table-area">
         <div class="pile" id="deckPile">
           <div>الكوم</div>
@@ -122,7 +118,6 @@
         </div>
       </div>
 
-      <!-- منطقة اليد بالتصفيط الحر -->
       <div class="hand-container">
         <div class="hand-tray" id="handTray"></div>
       </div>
@@ -206,7 +201,6 @@
       }
     });
 
-    // السحب بالضغط
     document.getElementById("deckPile").onclick = () => {
       if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: false });
     };
@@ -214,7 +208,6 @@
       if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: true });
     };
 
-    // بناء اليد وتفعيل محاكي جواكر للترتيب والسحب
     function renderHand() {
       const tray = document.getElementById("handTray");
       tray.innerHTML = "";
@@ -227,37 +220,38 @@
         tray.appendChild(div);
       });
 
-      // تفعيل محرك الترتيب باللمس والماوس (Drag & Drop + Reorder)
       if (sortableHand) sortableHand.destroy();
 
       sortableHand = new Sortable(tray, {
-        animation: 200,
+        animation: 150,
         ghostClass: 'card-ghost',
         chosenClass: 'card-chosen',
         dragClass: 'card-chosen',
-        fallbackOnBody: true,
-        swapThreshold: 0.65,
+        direction: 'horizontal',
+        forceFallback: false,
         onEnd: function (evt) {
-          // تحديث ترتيب الكروت في الذاكرة بعد سحبها
+          // تحديث الترتيب الحقيقي للأوراق في الذاكرة بنفس المكان الذي وضعت فيه الكرت بالضبط
           const movedCard = myHand.splice(evt.oldIndex, 1)[0];
           myHand.splice(evt.newIndex, 0, movedCard);
 
-          // إذا تم سحب الكرت وإسقاطه فوق منطقة "الساحة" لرميه
+          // التحقق إذا تم رمي الكرت فوق الساحة
           const discardRect = document.getElementById("discardPile").getBoundingClientRect();
           const touchEvt = evt.originalEvent.changedTouches ? evt.originalEvent.changedTouches[0] : evt.originalEvent;
-          const mouseX = touchEvt.clientX;
-          const mouseY = touchEvt.clientY;
+          if (touchEvt) {
+            const mouseX = touchEvt.clientX;
+            const mouseY = touchEvt.clientY;
 
-          if (
-            mouseX >= discardRect.left &&
-            mouseX <= discardRect.right &&
-            mouseY >= discardRect.top &&
-            mouseY <= discardRect.bottom
-          ) {
-            if (isMyTurnGlobal && hasDrawnGlobal) {
-              socket.emit("discard-card", { cardId: movedCard.id });
-            } else {
-              renderHand(); // إرجاع الكرت إذا لم يكن دوره
+            if (
+              mouseX >= discardRect.left &&
+              mouseX <= discardRect.right &&
+              mouseY >= discardRect.top &&
+              mouseY <= discardRect.bottom
+            ) {
+              if (isMyTurnGlobal && hasDrawnGlobal) {
+                socket.emit("discard-card", { cardId: movedCard.id });
+              } else {
+                renderHand();
+              }
             }
           }
         }
