@@ -27,7 +27,6 @@
     .room-info { font-size: 14px; font-weight: bold; color: #f59e0b; }
     .btn-start { background: #10b981; padding: 6px 15px; width: auto; margin: 0; font-size: 14px; border-radius: 6px; }
 
-    /* الطاولة الخضراء */
     .table-felt {
       position: relative;
       width: 95%;
@@ -57,7 +56,6 @@
     .hand-tools { display: flex; justify-content: center; gap: 10px; padding: 4px; background: #181818; border-top: 1px solid #333; }
     .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; }
 
-    /* منطقة يد اللاعب بكامل سلاسة جواكر */
     .hand-wrapper {
       width: 100%;
       padding: 15px 5px;
@@ -76,7 +74,6 @@
       padding: 0 10px;
     }
 
-    /* الكروت وتداخلها */
     .card {
       width: 52px;
       height: 80px;
@@ -95,14 +92,13 @@
       justify-content: space-between;
       align-items: center;
       margin-left: -16px;
-      transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), margin 0.2s ease;
+      transition: margin 0.15s ease, transform 0.15s ease;
       touch-action: none;
     }
 
     .card:first-child { margin-left: 0; }
     .card.red { color: #dc2626; }
     
-    /* عند تحديد كرت واحد فقط */
     .card.selected { 
       transform: translateY(-18px) !important; 
       border: 2px solid #f59e0b !important; 
@@ -110,25 +106,32 @@
       z-index: 100;
     }
 
-    /* أشرطة تظليل النزول في الجزء العلوي */
-    .card.meld-start { border-top: 4px solid #10b981 !important; }
-    .card.meld-mid { border-top: 4px solid #10b981 !important; }
-    .card.meld-end { border-top: 4px solid #10b981 !important; }
+    .card.meld-start, .card.meld-mid, .card.meld-end { border-top: 4px solid #10b981 !important; }
 
-    /* سلاسة سحب فتح المجال */
-    .card-ghost { 
-      opacity: 0.25 !important; 
-      background: #f59e0b !important; 
-      margin: 0 12px !important;
-      border: 2px dashed #f59e0b !important;
+    /* حيلة الحل: توسيع المسافات بين الكروت أثناء السحب لدحش الكرت بسهولة */
+    .is-dragging .card {
+      margin-left: 4px !important;
     }
-    .card-drag { transform: scale(1.1) rotate(-2deg) !important; z-index: 9999 !important; }
+
+    /* مكان الكرت الجديد الجاري حشره */
+    .card-ghost { 
+      opacity: 0.4 !important; 
+      background: #f59e0b !important; 
+      border: 2px dashed #d97706 !important;
+      margin-left: 4px !important;
+      width: 52px !important;
+    }
+    
+    .card-drag { 
+      transform: scale(1.15) !important; 
+      z-index: 9999 !important; 
+      margin-left: 0 !important;
+    }
 
     .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
     .sum-box { font-size: 12px; color: #aaa; text-align: center; }
     .sum-val { font-size: 16px; color: #fff; font-weight: bold; }
     
-    /* أزرار الإجراءات */
     .action-btns { display: flex; gap: 8px; }
     .btn-action { color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
     .btn-discard { background: #dc2626; border: 1px solid #ef4444; }
@@ -141,7 +144,6 @@
 
   <div id="errorToast" class="error-toast">الورقة التي أضفتها خاطئة أو في المكان الخاطئ</div>
 
-  <!-- شاشة الدخول -->
   <div class="screen" id="authScreen">
     <h2 style="color:#f59e0b;">🃏 هاند سعودي</h2>
     <input id="pName" type="text" placeholder="اسم اللاعب">
@@ -150,16 +152,13 @@
     <button id="joinBtn" style="background:#10b981;">دخول الغرفة</button>
   </div>
 
-  <!-- شاشة اللعبة -->
   <div class="screen hidden" id="gameScreen" style="padding:0; justify-content:space-between;">
-    
     <div class="top-bar">
       <div class="room-info">غرفة: <span id="roomCodeDisp">----</span></div>
       <button class="btn-start hidden" id="startBtn">🚀 ابدأ اللعبة</button>
       <div style="font-size:12px; color:#aaa;" id="statusText">بانتظار اللاعبين...</div>
     </div>
 
-    <!-- الطاولة -->
     <div class="table-felt">
       <div class="opponent-area">
         <div class="avatar" id="oppAvatar">👤</div>
@@ -178,19 +177,16 @@
       <div class="table-melds" id="tableMelds"></div>
     </div>
 
-    <!-- أدوات التصفيط -->
     <div class="hand-tools">
       <button class="btn-tool" onclick="sortHand('value')">تصفيط أرقام 🔢</button>
       <button class="btn-tool" onclick="sortHand('suit')">تصفيط أنواع ♠️♦️</button>
     </div>
 
-    <!-- اليد -->
-    <div class="hand-wrapper">
+    <div class="hand-wrapper" id="handWrapper">
       <div class="hand-row" id="row1"></div>
       <div class="hand-row" id="row2"></div>
     </div>
 
-    <!-- الشريط السفلي -->
     <div class="bottom-bar">
       <div class="avatar" id="myAvatar">👤</div>
       <div class="sum-box">
@@ -210,7 +206,7 @@
   <script>
     const socket = io();
     let myHandRow1 = [], myHandRow2 = [];
-    let selectedCardId = null; // تحديد كرت واحد فقط كـ Jawaker
+    let selectedCardId = null;
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
 
@@ -302,7 +298,6 @@
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
-        // اختيار كرت واحد فقط عند الضغط
         div.onclick = (e) => {
           e.stopPropagation();
           selectedCardId = isSelected ? null : card.id;
@@ -313,18 +308,24 @@
       });
     }
 
-    /* تهيئة السحب السلس وإفساح المجال التلقائي بين الكروت */
     function initSortable() {
+      const handWrapper = document.getElementById("handWrapper");
+
       ['row1', 'row2'].forEach(rowId => {
         new Sortable(document.getElementById(rowId), {
           group: 'hand',
-          animation: 150,
+          animation: 200,
           ghostClass: 'card-ghost',
           dragClass: 'card-drag',
           forceFallback: true,
-          fallbackTolerance: 2,
-          swapThreshold: 0.5,
+          fallbackTolerance: 3,
+          onStart: () => {
+            // فتح مجال بين كل الكروت فور بداية السحب
+            handWrapper.classList.add("is-dragging");
+          },
           onEnd: () => {
+            // إعادة التداخل بعد الإفلات
+            handWrapper.classList.remove("is-dragging");
             syncHandState();
             renderHand();
           }
@@ -343,7 +344,6 @@
       myHandRow2 = getRowCards("row2");
     }
 
-    /* إظهار زر الرمي عند اختيار كرت واحد فقط وفي دورك */
     function updateDiscardButtonVisibility() {
       const btn = document.getElementById("discardBtn");
       if (selectedCardId && isMyTurn && hasDrawn) {
@@ -353,14 +353,12 @@
       }
     }
 
-    /* رمي الكرت المختار للشارع / النار */
     document.getElementById("discardBtn").onclick = () => {
       if (!selectedCardId || !isMyTurn || !hasDrawn) return;
       socket.emit("discard-card", { roomCode, cardId: selectedCardId });
       selectedCardId = null;
     };
 
-    /* سحب كرت بضغطة واحدة من كومة السحب */
     document.getElementById("deckPile").onclick = () => {
       if (isMyTurn && !hasDrawn) {
         socket.emit("draw-card", { roomCode, fromDiscard: false });
@@ -373,7 +371,6 @@
       }
     };
 
-    /* فحص النزول المكتمل المرتّب وتلوين الشريط العلوي له تلقائياً */
     function calculateAndHighlightMelds() {
       document.querySelectorAll('.card').forEach(c => {
         c.classList.remove('meld-start', 'meld-mid', 'meld-end');
