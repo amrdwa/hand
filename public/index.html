@@ -186,6 +186,7 @@
     let roomCode = "";
     let isMyTurn = false, hasDrawn = false;
     let draggedCardId = null;
+    let isInitialDeal = true; // للتحقق من أول توزيعة كروت
 
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
@@ -237,9 +238,27 @@
     });
 
     socket.on("your-hand", (hand) => {
-      const half = Math.ceil(hand.length / 2);
-      myHandRow1 = hand.slice(0, half);
-      myHandRow2 = hand.slice(half);
+      if (isInitialDeal || (myHandRow1.length === 0 && myHandRow2.length === 0)) {
+        // التوزيعة الأولى أو إذا كانت اليد فارغة
+        const half = Math.ceil(hand.length / 2);
+        myHandRow1 = hand.slice(0, half);
+        myHandRow2 = hand.slice(half);
+        isInitialDeal = false;
+      } else {
+        // عند سحب كرت جديد: دمج الكرت الجديد فقط كأول كرت دون تخريب الترتيب الحالي
+        const currentAllIds = new Set([...myHandRow1, ...myHandRow2].map(c => c.id));
+        const newCard = hand.find(c => !currentAllIds.has(c.id));
+        
+        if (newCard) {
+          myHandRow1.unshift(newCard); // إضافته كأول كرت بالصف الأول مباشرة
+        } else {
+          // احتياطياً في حال تغيرت القائمة كاملة لأسباب أخرى
+          const half = Math.ceil(hand.length / 2);
+          myHandRow1 = hand.slice(0, half);
+          myHandRow2 = hand.slice(half);
+        }
+      }
+      
       selectedCardId = null;
       renderHand();
     });
