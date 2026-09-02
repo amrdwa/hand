@@ -553,9 +553,17 @@
       return realSum;
     }
 
+    // التعديل هنا: زر "انزل" يجمع كل الكروت التي تحمل حدود الملدات الصحيحة ويرسلها دفعة واحدة
     document.getElementById("meldBtn").onclick = () => {
-      if (!selectedCardId) return;
-      socket.emit("meld-cards", { roomCode, cardIds: [selectedCardId] });
+      const validMeldCards = document.querySelectorAll('.card.meld-start, .card.meld-mid, .card.meld-end');
+      
+      if (validMeldCards.length === 0) {
+        showError("لا توجد مجموعات صحيحة للنزول بها (يجب أن تكون 3 كروت على الأقل ومجموعها 51+)");
+        return;
+      }
+
+      const cardIds = Array.from(validMeldCards).map(card => card.dataset.id);
+      socket.emit("meld-cards", { roomCode, cardIds });
     };
 
     function renderTableMelds(melds) {
