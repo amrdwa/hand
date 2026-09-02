@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
+<!DOCTYPE html><html lang="ar" dir="rtl"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>هاند سعودي - Jawaker System</title>
@@ -120,9 +118,7 @@
     .btn-meld { background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%); border: 1px solid #fde047; }
 
     .error-toast { position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); color: #fff; padding: 10px 16px; border-radius: 8px; border: 1px solid #ef4444; font-weight: bold; font-size: 12px; z-index: 9999; text-align: center; display: none; }
-  </style>
-</head>
-<body>
+  </style></head><body>
 
   <div id="errorToast" class="error-toast">الورقة التي أضفتها خاطئة أو في المكان الخاطئ</div>
 
@@ -343,7 +339,6 @@
           
           if (draggedCardId && draggedCardId !== card.id) {
             const rect = div.getBoundingClientRect();
-            // في الواجهة العربية RTL: السحب نحو اليمين يعني إفلاته قبل الكرت (على شماله بصرياً) حسب موقع الماوس
             const offsetX = e.clientX - rect.left;
             const insertBefore = offsetX < (rect.width / 2);
             moveCardWithPrecision(draggedCardId, card.id, rowId, insertBefore);
@@ -395,7 +390,6 @@
       const targetIdx = targetRow.findIndex(c => c.id == targetId);
 
       if (targetIdx !== -1) {
-        // إذا كان الماوس على النصف الأيسر للكرت (حسب اتجاه RTL) ندخله قبله، وإلا بعده بدقة
         const finalIdx = insertBefore ? targetIdx : targetIdx + 1;
         targetRow.splice(finalIdx, 0, sourceCard);
       } else {
@@ -471,13 +465,17 @@
         let sub = row.slice(startIndex, startIndex + len);
         let nonJokers = sub.filter(c => c.value !== 'JOKER');
         
+        // 1. فحص المجموعات المتشابهة (Sets - مثل 3 أو 4 أولاد J أو أرقام متشابهة) بدقة
         if (nonJokers.length > 0) {
           let firstVal = nonJokers[0].value;
           let isSameSet = nonJokers.every(c => c.value === firstVal);
           let suits = new Set(nonJokers.map(c => c.suit));
-          if (isSameSet && suits.size === nonJokers.length) return len;
+          if (isSameSet && suits.size === nonJokers.length && sub.length >= 3 && sub.length <= 4) {
+            return len;
+          }
         }
 
+        // 2. فحص السلاسل (Runs - تسلسل أوراق نفس النوع)
         if (nonJokers.length > 0) {
           let targetSuit = nonJokers[0].suit;
           let sameSuit = nonJokers.every(c => c.suit === targetSuit);
@@ -553,6 +551,4 @@
         container.appendChild(groupDiv);
       });
     }
-  </script>
-</body>
-</html>
+  </script></body></html>
