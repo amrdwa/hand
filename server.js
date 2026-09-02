@@ -8,26 +8,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let rooms = {};
 
-// إنشاء ورق اللعب (شدتين هاند = 108 كروت مع الجوكرز)
 function createDeck() {
   const suits = ['♠', '♥', '♦', '♣'];
   const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   let deck = [];
   let id = 1;
 
-  for (let d = 0; d < 2; d++) { // شدتين
+  for (let d = 0; d < 2; d++) {
     for (let s of suits) {
       for (let v of values) {
         let color = (s === '♥' || s === '♦') ? 'red' : 'black';
         deck.push({ id: id++, value: v, suit: s, color: color });
       }
     }
-    // إضافة 2 جوكر لكل شدة
     deck.push({ id: id++, value: 'JOKER', suit: '🃏', color: 'red' });
     deck.push({ id: id++, value: 'JOKER', suit: '🃏', color: 'black' });
   }
 
-  // خلط الأوراق
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -35,14 +32,12 @@ function createDeck() {
   return deck;
 }
 
-// حساب قيمة الكرت للنقاط (نظام الـ 51)
 function getCardScore(card, groupCards = null) {
   const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
   if (card.value === 'A') return 11;
   if (['K', 'Q', 'J'].includes(card.value)) return 10;
   if (card.value !== 'JOKER') return parseInt(card.value) || 0;
   
-  // حساب قيمة الجوكر بناءً على مكانه في المجموعة إذا وجد
   if (groupCards) {
     const idx = groupCards.findIndex(c => c.id === card.id);
     let prev = groupCards[idx-1], next = groupCards[idx+1];
@@ -52,14 +47,13 @@ function getCardScore(card, groupCards = null) {
   return 10;
 }
 
-// التحقق من صحة مجموعة واحدة (مجموعات متشابهة أو تسلسل)
 function isValidSingleMeld(sub) {
   const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
   if (sub.length < 3) return false;
 
   let nonJokers = sub.filter(c => c.value !== 'JOKER');
   
-  // 1. فحص المجموعات المتشابهة (Sets: نفس القيمة، أنواع مختلفة)
+  // Sets (متشابهة)
   if (nonJokers.length > 0) {
     let firstVal = nonJokers[0].value;
     let isSameSet = nonJokers.every(c => c.value === firstVal);
@@ -69,7 +63,7 @@ function isValidSingleMeld(sub) {
     }
   }
 
-  // 2. فحص التسلسل (Runs: نفس النوع، أرقام متتالية)
+  // Runs (متسلسلة)
   if (nonJokers.length > 0) {
     let targetSuit = nonJokers[0].suit;
     let sameSuit = nonJokers.every(c => c.suit === targetSuit);
@@ -86,7 +80,6 @@ function isValidSingleMeld(sub) {
 function isValidRunDirection(sub, valOrder, step) {
   let lastVal = null;
   let lastIdx = -1;
-
   for (let k = 0; k < sub.length; k++) {
     if (sub[k].value !== 'JOKER') {
       let currentVal = valOrder[sub[k].value];
@@ -103,7 +96,6 @@ function isValidRunDirection(sub, valOrder, step) {
 
 io.on('connection', (socket) => {
 
-  // 1. إنشاء غرفة
   socket.on('create-room', ({ name }, cb) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     rooms[code] = {
@@ -121,7 +113,6 @@ io.on('connection', (socket) => {
     cb({ success: true, code });
   });
 
-  // 2. دخول غرفة
   socket.on('join-room', ({ name, code }, cb) => {
     const room = rooms[code];
     if (!room) return cb({ success: false, message: 'الغرفة غير موجودة' });
@@ -130,11 +121,9 @@ io.on('connection', (socket) => {
     room.players.push({ id: socket.id, name, hand: [], hasMelded: false });
     socket.join(code);
     cb({ success: true });
-
     io.to(code).emit('update-players', room.players);
   });
 
-  // 3. بدء اللعبة وتوزيع الأوراق
   socket.on('start-game', ({ code }) => {
     const room = rooms[code];
     if (!room) return;
@@ -157,7 +146,6 @@ io.on('connection', (socket) => {
     sendGameState(code);
   });
 
-  // 4. السحب
   socket.on('draw-card', ({ roomCode, fromDiscard }) => {
     const room = rooms[roomCode];
     if (!room || room.hasDrawn) return;
@@ -180,7 +168,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 5. تنزيل المجموعات (التحقق الدقيق لكل مجموعة + شرط 51 نقطة)
+  // معالجة النزول وفحص المجموعات في السيرفر بدقة
   socket.on('meld-cards', ({ roomCode, cardIds }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -188,82 +176,54 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
-    const selectedCards = player.hand.filter(c => cardIds.includes(c.id));
-    if (selectedCards.length === 0) {
-      return socket.emit('error-msg', 'الرجاء اختيار كروت صحيحة للنزول');
-    }
-
-    // محاولة تقسيم الكروت المحددة إلى مجموعات صحيحة متتالية (نفس منطق الواجهة)
-    let parsedMelds = [];
-    let remainingCards = [...selectedCards];
-    
-    // خوارزمية بسيطة لاستخراج المجموعات الصحيحة من الكروت المحددة
-    while (remainingCards.length >= 3) {
-      let foundMeld = false;
-      for (let len = remainingCards.length; len >= 3; len--) {
-        let sub = remainingCards.slice(0, len);
-        if (isValidSingleMeld(sub)) {
-          parsedMelds.push(sub);
-          remainingCards = remainingCards.slice(len);
-          foundMeld = false;
-          break;
-        } else {
-          // جرب ترتيبات جزئية أو ابحث بطريقة أبسط
-          // للتسهيل: نفترض أن اللاعب رتبهم بجانب بعض في يده كما تظهر الملونة في الواجهة
-        }
-      }
-      if (!foundMeld && remainingCards.length === selectedCards.length) {
-        // إذا فشل التقسيم التلقائي، جرب اعتبار الكروت المحددة ككل عبارة عن مجموعات مجزأة حسب ترتيب اليد
-        break;
-      }
-      if (foundMeld) break;
-    }
-
-    // طريقة بديلة دقيقة: فحص الـ cardIds بناءً على المجموعات الملونة تماماً في الواجهة
-    // نقوم بتقسيم الـ selectedCards بناءً على الفواصل الصحيحة للمجموعات
+    // استخراج الكروت المحددة من يد اللاعب بناءً على ترتيب يده
+    let handCards = [...player.hand];
+    let selectedSet = new Set(cardIds);
+    let subGroup = [];
     let verifiedGroups = [];
-    let currentGroup = [];
-    
-    // سنعتمد على ترتيب الكروت تماماً كما أرسلها اللاعب (يجب أن تكون مرتبة في يده بالمجموعات)
-    // أو نقوم بفحص مصفوفة الكروت المحددة عبر تقسيمها عند كل مجموعة صحيحة:
-    let tempRow = [...player.hand.filter(c => cardIds.includes(c.id))];
-    let i = 0;
     let totalScore = 0;
-    
-    while (i < tempRow.length) {
-      let matchedLen = 0;
-      for (let len = tempRow.length - i; len >= 3; len--) {
-        let sub = tempRow.slice(i, i + len);
-        if (isValidSingleMeld(sub)) {
-          matchedLen = len;
-          break;
+
+    // فحص وتقسيم الكروت إلى مجموعات صحيحة متتالية
+    let i = 0;
+    while (i < handCards.length) {
+      if (selectedSet.has(handCards[i].id)) {
+        // ابحث عن أطول مجموعة صحيحة تبدأ من هذا الكرت
+        let bestLen = 0;
+        for (let len = handCards.length - i; len >= 3; len--) {
+          let candidate = handCards.slice(i, i + len);
+          // تأكد أن كل كروت المرشح موجودة ضمن الكروت المحددة من قبل اللاعب
+          let allSelected = candidate.every(c => selectedSet.has(c.id));
+          if (allSelected && isValidSingleMeld(candidate)) {
+            bestLen = len;
+            break;
+          }
         }
-      }
-      
-      if (matchedLen > 0) {
-        let subMeld = tempRow.slice(i, i + matchedLen);
-        verifiedGroups.push(subMeld);
-        let groupSum = subMeld.reduce((s, c) => s + getCardScore(c, subMeld), 0);
-        totalScore += groupSum;
-        i += matchedLen;
+        if (bestLen > 0) {
+          let validMeld = handCards.slice(i, i + bestLen);
+          verifiedGroups.push(validMeld);
+          totalScore += validMeld.reduce((s, c) => s + getCardScore(c, validMeld), 0);
+          i += bestLen;
+        } else {
+          i++;
+        }
       } else {
-        i++; // تجاوز الكرت الخاطئ أو غير المكتمل
+        i++;
       }
     }
 
-    // التحقق من شرط النزول الأول (مجموع النقاط >= 51 و وجود مجموعة واحدة صحيحة على الأقل)
+    // شرط النزول الأول: المجموع الكلي للمجموعات الصحيحة يجب ألا يقل عن 51 نقطة
     if (!player.hasMelded && (verifiedGroups.length === 0 || totalScore < 51)) {
-      return socket.emit('error-msg', 'مجموع الكروت يجب أن يكون 51 نقطة على الأقل في مجموعات صحيحة');
+      return socket.emit('error-msg', `مجموع الكروت المحددة هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
     }
 
     if (verifiedGroups.length > 0) {
-      let flatCardIdsToRem = verifiedGroups.flat().map(c => c.id);
+      let cardsToRemove = verifiedGroups.flat().map(c => c.id);
       
       // إزالة الكروت من يد اللاعب
-      player.hand = player.hand.filter(c => !flatCardIdsToRem.includes(c.id));
+      player.hand = player.hand.filter(c => !cardsToRemove.includes(c.id));
       player.hasMelded = true;
 
-      // إضافة المجموعات للطاولة
+      // إضافة المجموعات للطاولة الرئيسية
       verifiedGroups.forEach(group => {
         room.melds.push(group);
       });
@@ -271,11 +231,10 @@ io.on('connection', (socket) => {
       socket.emit('your-hand', player.hand);
       sendGameState(roomCode);
     } else {
-      socket.emit('error-msg', 'الورقة التي أضفتها خاطئة أو في المكان الخاطئ');
+      socket.emit('error-msg', 'الورقة التي أضفتها خاطئة أو غير مرتبة في مجموعة صحيحة');
     }
   });
 
-  // 6. رمي كرت وإنهاء الدور
   socket.on('discard-card', ({ roomCode, cardId }) => {
     const room = rooms[roomCode];
     if (!room || !room.hasDrawn) return;
@@ -301,7 +260,6 @@ io.on('connection', (socket) => {
 function sendGameState(code) {
   const room = rooms[code];
   if (!room) return;
-
   const currentPlayer = room.players[room.turnIndex];
 
   io.to(code).emit('game-state', {
