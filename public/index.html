@@ -27,7 +27,7 @@
       position: relative; border: 2px solid #ccc; cursor: grab; margin-left: -22px; touch-action: none;
     }
     .card.red { color: #dc2626; }
-    .card.dragging { opacity: 0.4; }
+    .card.selected { transform: translateY(-15px); border-color: #facc15 !important; }
 
     .hand-tray {
       display: flex; justify-content: center; align-items: flex-end;
@@ -35,7 +35,6 @@
       background: rgba(0,0,0,0.4); border-radius: 20px; width: 100%; margin-top: 10px;
     }
 
-    .btn-hand { background: #000; border: 2px solid #facc15; color: #facc15; margin-bottom: 10px; }
     .status-box { background: rgba(0,0,0,0.5); padding: 8px; border-radius: 8px; font-weight: bold; color: #facc15; margin-bottom: 10px; }
   </style>
 </head>
@@ -77,9 +76,7 @@
         </div>
       </div>
 
-      <button id="handWinBtn" class="btn-hand hidden">🔥 إنهاء هاند</button>
-
-      <!-- يد اللاعب للترتيب الحر -->
+      <!-- يد اللاعب -->
       <div class="hand-tray" id="handTray"></div>
     </div>
   </div>
@@ -89,7 +86,7 @@
     const socket = io();
     let myHand = [];
     let roomCode = "";
-    let draggedIndex = null;
+    let selectedCardId = null;
     let isMyTurnGlobal = false;
     let hasDrawnGlobal = false;
 
@@ -155,92 +152,42 @@
       }
 
       if (isMyTurnGlobal) {
-        turnStatus.textContent = hasDrawnGlobal ? "🟢 دورك! اسحب كرت من يدك وارمِه على الساحة" : "🟢 دورك! اضغط على الكوم أو الساحة للسحب";
+        turnStatus.textContent = hasDrawnGlobal ? "🟢 دورك! اضغط على كرت ثم اضغط الساحة لرميه" : "🟢 دورك! اضغط الكوم أو الساحة للسحب";
       } else {
         turnStatus.textContent = `🔴 دور: ${state.turnPlayerName}`;
       }
-
-      document.getElementById("deckPile").onclick = () => {
-        if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: false });
-      };
-      document.getElementById("discardPile").onclick = () => {
-        if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: true });
-      };
-
-      const handWinBtn = document.getElementById("handWinBtn");
-      if (myHand.length === 14 || myHand.length === 15) {
-        handWinBtn.classList.remove("hidden");
-      } else {
-        handWinBtn.classList.add("hidden");
-      }
     });
+
+    document.getElementById("deckPile").onclick = () => {
+      if (isMyTurnGlobal && !hasDrawnGlobal) socket.emit("draw-card", { fromDiscard: false });
+    };
+
+    document.getElementById("discardPile").onclick = () => {
+      if (isMyTurnGlobal && !hasDrawnGlobal) {
+        socket.emit("draw-card", { fromDiscard: true });
+      } else if (isMyTurnGlobal && hasDrawnGlobal && selectedCardId) {
+        socket.emit("discard-card", { cardId: selectedCardId });
+        selectedCardId = null;
+      }
+    };
 
     function renderHand() {
       const tray = document.getElementById("handTray");
       tray.innerHTML = "";
 
-      myHand.forEach((card, index) => {
+      myHand.forEach((card) => {
         const div = document.createElement("div");
-        div.className = `card ${card.color}`;
-        div.draggable = true;
-        div.dataset.index = index;
+        div.className = `card ${card.color} ${selectedCardId === card.id ? 'selected' : ''}`;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
 
-        // أحداث السحب والترتيب يدويًا
-        div.ondragstart = (e) => {
-          draggedIndex = index;
-          div.classList.add("dragging");
-          e.dataTransfer.setData("text/plain", index);
-        };
-
-        div.ondragend = () => {
-          div.classList.remove("dragging");
-        };
-
-        div.ondragover = (e) => e.preventDefault();
-
-        div.ondrop = (e) => {
-          e.preventDefault();
-          const targetIndex = parseInt(div.dataset.index);
-          if (draggedIndex !== null && draggedIndex !== targetIndex) {
-            const movedCard = myHand.splice(draggedIndex, 1)[0];
-            myHand.splice(targetIndex, 0, movedCard);
-            renderHand();
-          }
+        div.onclick = () => {
+          selectedCardId = (selectedCardId === card.id) ? null : card.id;
+          renderHand();
         };
 
         tray.appendChild(div);
       });
     }
-
-    // إمكانية رمي الكرت بالماوس وإسقاطه في الساحة
-    const discardPile = document.getElementById("discardPile");
-
-    discardPile.ondragover = (e) => {
-      e.preventDefault();
-      discardPile.classList.add("drag-over");
-    };
-
-    discardPile.ondragleave = () => {
-      discardPile.classList.remove("drag-over");
-    };
-
-    discardPile.ondrop = (e) => {
-      e.preventDefault();
-      discardPile.classList.remove("drag-over");
-      if (isMyTurnGlobal && hasDrawnGlobal && draggedIndex !== null) {
-        const cardToDiscard = myHand[draggedIndex];
-        socket.emit("discard-card", { cardId: cardToDiscard.id });
-        draggedIndex = null;
-      }
-    };
-
-    document.getElementById("handWinBtn").onclick = () => {
-      socket.emit("declare-hand-win");
-    };
-
-    socket.on("round-ended", (res) => alert(`🎉 انتهت الجولة! الفائز: ${res.winnerName}`));
-    socket.on("game-over", () => alert("🏆 انتهت الـ 5 جولات بالكامل!"));
   </script>
 </body>
 </html>
