@@ -108,7 +108,7 @@
     .card.meld-start, .card.meld-mid, .card.meld-end { border-top: 4px solid #10b981 !important; }
 
     .card.dragging { opacity: 0.2; }
-    .card.drop-target-left { border-left: 4px solid #3b82f6 !important; margin-left: 6px !important; }
+    .card.drop-target-left { border-left: 4px solid #3b82f6 !important; }
 
     .bottom-bar { background: #000; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; }
     .sum-box { font-size: 11px; color: #aaa; text-align: center; }
@@ -282,7 +282,22 @@
       container.innerHTML = "";
 
       container.ondragover = (e) => e.preventDefault();
-      container.ondrop = (e) => handleContainerDrop(e, rowId);
+      container.ondrop = (e) => {
+        e.preventDefault();
+        if (!draggedCardId) return;
+        const allCards = [...myHandRow1, ...myHandRow2];
+        const sourceCard = allCards.find(c => c.id == draggedCardId);
+        if (!sourceCard) return;
+
+        myHandRow1 = myHandRow1.filter(c => c.id != draggedCardId);
+        myHandRow2 = myHandRow2.filter(c => c.id != draggedCardId);
+
+        if (rowId === "row1") myHandRow1.push(sourceCard);
+        else myHandRow2.push(sourceCard);
+
+        draggedCardId = null;
+        renderHand();
+      };
 
       cards.forEach((card) => {
         const div = document.createElement("div");
@@ -325,8 +340,13 @@
           e.preventDefault();
           e.stopPropagation();
           clearDropTargetStyles();
+          
           if (draggedCardId && draggedCardId !== card.id) {
-            moveCardToTarget(draggedCardId, card.id, rowId);
+            const rect = div.getBoundingClientRect();
+            // في الواجهة العربية RTL: السحب نحو اليمين يعني إفلاته قبل الكرت (على شماله بصرياً) حسب موقع الماوس
+            const offsetX = e.clientX - rect.left;
+            const insertBefore = offsetX < (rect.width / 2);
+            moveCardWithPrecision(draggedCardId, card.id, rowId, insertBefore);
           }
         };
 
@@ -362,7 +382,7 @@
       };
     }
 
-    function moveCardToTarget(sourceId, targetId, targetRowId) {
+    function moveCardWithPrecision(sourceId, targetId, targetRowId, insertBefore) {
       const allCards = [...myHandRow1, ...myHandRow2];
       const sourceCard = allCards.find(c => c.id == sourceId);
 
@@ -375,29 +395,12 @@
       const targetIdx = targetRow.findIndex(c => c.id == targetId);
 
       if (targetIdx !== -1) {
-        // وضعه على شمال الكرت المستهدف تماماً (قبل الـ index القديم مباشرة)
-        targetRow.splice(targetIdx, 0, sourceCard);
+        // إذا كان الماوس على النصف الأيسر للكرت (حسب اتجاه RTL) ندخله قبله، وإلا بعده بدقة
+        const finalIdx = insertBefore ? targetIdx : targetIdx + 1;
+        targetRow.splice(finalIdx, 0, sourceCard);
       } else {
         targetRow.push(sourceCard);
       }
-
-      draggedCardId = null;
-      renderHand();
-    }
-
-    function handleContainerDrop(e, rowId) {
-      e.preventDefault();
-      if (!draggedCardId) return;
-
-      const allCards = [...myHandRow1, ...myHandRow2];
-      const sourceCard = allCards.find(c => c.id == draggedCardId);
-      if (!sourceCard) return;
-
-      myHandRow1 = myHandRow1.filter(c => c.id != draggedCardId);
-      myHandRow2 = myHandRow2.filter(c => c.id != draggedCardId);
-
-      if (rowId === "row1") myHandRow1.push(sourceCard);
-      else myHandRow2.push(sourceCard);
 
       draggedCardId = null;
       renderHand();
