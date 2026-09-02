@@ -34,7 +34,7 @@
       position: relative;
       width: 95%;
       max-width: 550px;
-      height: 38vh;
+      height: 36vh;
       margin: 5px auto 0 auto;
       background: radial-gradient(circle, #347838 0%, #17421a 100%);
       border: 6px solid #4a4a4a;
@@ -55,68 +55,77 @@
     .meld-card { width: 26px; height: 38px; background: #fff; color: #000; border-radius: 4px; font-size: 10px; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: -10px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     .meld-card:first-child { margin-left: 0; }
 
-    /* أدوات تصفيط */
+    /* أدوات التصفيط */
     .hand-tools { display: flex; justify-content: center; gap: 10px; padding: 4px; background: #181818; border-top: 1px solid #333; }
     .btn-tool { background: #374151; color: #d1d5db; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: bold; }
 
-    /* منطقة اليد */
+    /* منطقة يد اللاعب - تداخل واسع فتح مجال لسحب جواكر */
     .hand-wrapper {
       width: 100%;
-      padding: 10px;
+      padding: 15px 10px;
       background: #141414;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      overflow-x: auto;
     }
 
     .hand-row {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 80px;
+      min-height: 85px;
       width: 100%;
-      gap: 4px;
+      padding: 0 20px;
     }
 
-    /* تصميم الكروت */
+    /* كروت جواكر المتداخلة ببعضها */
     .card {
-      width: 52px;
-      height: 78px;
+      width: 54px;
+      height: 82px;
       background: #ffffff;
       color: #111;
-      border-radius: 7px;
+      border-radius: 8px;
       padding: 4px;
       font-weight: bold;
       font-size: 14px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-      border: 1px solid #ccc;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.4);
+      border: 1px solid #bbb;
       cursor: grab;
       position: relative;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      transition: transform 0.15s ease, border 0.2s ease, box-shadow 0.2s ease;
+      margin-left: -18px; /* تداخل الكروت كأوراق اليد الحقيقية */
+      transition: transform 0.15s ease, margin 0.2s ease, border-color 0.2s;
     }
 
-    .card:active { cursor: grabbing; }
+    .card:first-child { margin-left: 0; }
     .card.red { color: #dc2626; }
     
-    /* مؤشر النزول الجاهز (إطار نيون أخضر/أزرق زي جواكر) */
-    .card.valid-meld-group {
-      border: 2px solid #10b981 !important;
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.7) !important;
-    }
-
-    /* عند اختيار الكرت للتنزيل */
+    /* عند تحديد كرت للرمي أو التنزيل */
     .card.selected { 
-      transform: translateY(-14px) !important; 
+      transform: translateY(-16px) !important; 
       border: 2.5px solid #f59e0b !important; 
-      box-shadow: 0 6px 14px rgba(245, 158, 11, 0.6) !important; 
+      box-shadow: 0 8px 16px rgba(245, 158, 11, 0.6) !important; 
+      z-index: 100;
     }
 
-    .card-ghost { opacity: 0.15 !important; background: #333 !important; }
-    .card-drag { transform: scale(1.1) !important; z-index: 9999 !important; opacity: 0.95; }
+    /* إظهار لون خط النزول العلوي كجواكر (Meld Indicator) */
+    .card.meld-start { border-top: 4px solid #10b981 !important; border-top-left-radius: 8px; }
+    .card.meld-mid { border-top: 4px solid #10b981 !important; border-radius: 0; }
+    .card.meld-end { border-top: 4px solid #10b981 !important; border-top-right-radius: 8px; }
+
+    /* أنيميشن فتح المجال عند السحب بين الكروت */
+    .card-ghost { 
+      opacity: 0.2 !important; 
+      background: #f59e0b !important; 
+      margin-left: 10px !important; 
+      margin-right: 10px !important;
+      border: 2px dashed #f59e0b !important;
+    }
+    .card-drag { transform: scale(1.15) rotate(-3deg) !important; z-index: 9999 !important; box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important; }
 
     .bottom-bar { background: #000; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
     .sum-box { font-size: 12px; color: #aaa; text-align: center; }
@@ -167,7 +176,7 @@
       <div class="table-melds" id="tableMelds"></div>
     </div>
 
-    <!-- أدوات الفرز -->
+    <!-- أدوات التصفيط -->
     <div class="hand-tools">
       <button class="btn-tool" onclick="sortHand('value')">تصفيط أرقام 🔢</button>
       <button class="btn-tool" onclick="sortHand('suit')">تصفيط أنواع ♠️♦️</button>
@@ -245,7 +254,6 @@
       myHandRow1 = hand.slice(0, half);
       myHandRow2 = hand.slice(half);
       selectedCards.clear();
-      updateSum();
       renderHand();
     });
 
@@ -271,49 +279,27 @@
     }
 
     function renderHand() {
-      const validMeldIds = detectMeldGroups([...myHandRow1, ...myHandRow2]);
-      renderRow("row1", myHandRow1, validMeldIds);
-      renderRow("row2", myHandRow2, validMeldIds);
+      renderRow("row1", myHandRow1);
+      renderRow("row2", myHandRow2);
+      calculateAndHighlightMelds();
     }
 
-    /* الكشف التلقائي عن كروت النزول الجاهزة في اليد */
-    function detectMeldGroups(hand) {
-      const validIds = new Set();
-      const groups = {};
-
-      // تجميع الأوراق حسب قيمتها (مثال: 3 أوراق A)
-      hand.forEach(c => {
-        if (!groups[c.value]) groups[c.value] = [];
-        groups[c.value].push(c);
-      });
-
-      Object.values(groups).forEach(group => {
-        if (group.length >= 3) {
-          group.forEach(card => validIds.add(card.id));
-        }
-      });
-
-      return validIds;
-    }
-
-    function renderRow(rowId, cards, validMeldIds) {
+    function renderRow(rowId, cards) {
       const container = document.getElementById(rowId);
       container.innerHTML = "";
       cards.forEach((card) => {
         const div = document.createElement("div");
-        const isValidMeld = validMeldIds.has(card.id);
-        
-        div.className = `card ${card.color} ${selectedCards.has(card.id) ? 'selected' : ''} ${isValidMeld ? 'valid-meld-group' : ''}`;
+        div.className = `card ${card.color} ${selectedCards.has(card.id) ? 'selected' : ''}`;
         div.dataset.id = card.id;
         div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
         
-        div.onclick = () => {
+        div.onclick = (e) => {
+          e.stopPropagation();
           if (selectedCards.has(card.id)) {
             selectedCards.delete(card.id);
           } else {
             selectedCards.add(card.id);
           }
-          updateSum();
           renderHand();
         };
 
@@ -321,17 +307,20 @@
       });
     }
 
+    /* إعداد حركة السحب وفتح المجال بين الكروت كـ Jawaher بالظبط */
     function initSortable() {
       ['row1', 'row2'].forEach(rowId => {
         new Sortable(document.getElementById(rowId), {
           group: 'hand',
-          animation: 200,
+          animation: 180,
           ghostClass: 'card-ghost',
           dragClass: 'card-drag',
+          forceFallback: true,
           fallbackTolerance: 3,
+          swapThreshold: 0.65,
           onEnd: () => {
             syncHandState();
-            renderHand(); // إعادة التحديد والتلوين فوراً بعد الحركة
+            renderHand();
           }
         });
       });
@@ -348,6 +337,77 @@
       myHandRow2 = getRowCards("row2");
     }
 
+    /* فحص التجميعات اليدوية الناجحة وتلوين شريطها العلوي وحساب النقاط تلقائياً */
+    function calculateAndHighlightMelds() {
+      const allCards = [...myHandRow1, ...myHandRow2];
+      let totalMeldSum = 0;
+
+      // إزالة الخطوط السابقة
+      document.querySelectorAll('.card').forEach(c => {
+        c.classList.remove('meld-start', 'meld-mid', 'meld-end');
+      });
+
+      // التحقق من المتتاليات اليدوية في الصف الأول والثاني
+      [myHandRow1, myHandRow2].forEach(row => {
+        let currentSequence = [];
+
+        for (let i = 0; i < row.length; i++) {
+          const card = row[i];
+          const prevCard = row[i - 1];
+
+          if (isValidContinuation(prevCard, card)) {
+            if (currentSequence.length === 0) currentSequence.push(prevCard);
+            currentSequence.push(card);
+          } else {
+            if (currentSequence.length >= 3) {
+              applyMeldBorder(currentSequence);
+              totalMeldSum += getSequenceScore(currentSequence);
+            }
+            currentSequence = [];
+          }
+        }
+
+        if (currentSequence.length >= 3) {
+          applyMeldBorder(currentSequence);
+          totalMeldSum += getSequenceScore(currentSequence);
+        }
+      });
+
+      // تحديث المجموع في الأسفل
+      document.getElementById("selectedSum").textContent = `${totalMeldSum}/51`;
+    }
+
+    function isValidContinuation(prev, curr) {
+      if (!prev || !curr) return false;
+      if (prev.value === 'JOKER' || curr.value === 'JOKER') return true;
+      if (prev.value === curr.value) return true; // ثلاثية من نفس الرقم
+
+      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+      if (prev.suit === curr.suit && valOrder[curr.value] === valOrder[prev.value] + 1) return true; // تسلسل نزل
+
+      return false;
+    }
+
+    function applyMeldBorder(cards) {
+      cards.forEach((card, idx) => {
+        const el = document.querySelector(`[data-id="${card.id}"]`);
+        if (el) {
+          if (idx === 0) el.classList.add('meld-start');
+          else if (idx === cards.length - 1) el.classList.add('meld-end');
+          else el.classList.add('meld-mid');
+        }
+      });
+    }
+
+    function getSequenceScore(cards) {
+      return cards.reduce((sum, c) => {
+        if (c.value === 'A') return sum + 11;
+        if (['K','Q','J'].includes(c.value)) return sum + 10;
+        if (c.value === 'JOKER') return sum + 15;
+        return sum + (parseInt(c.value) || 0);
+      }, 0);
+    }
+
     function sortHand(type) {
       let fullHand = [...myHandRow1, ...myHandRow2];
       const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14, 'JOKER':15};
@@ -362,21 +422,6 @@
       myHandRow1 = fullHand.slice(0, half);
       myHandRow2 = fullHand.slice(half);
       renderHand();
-    }
-
-    function updateSum() {
-      const allCards = [...myHandRow1, ...myHandRow2];
-      let sum = 0;
-      selectedCards.forEach(id => {
-        const c = allCards.find(card => card.id == id);
-        if (c) {
-          if (c.value === 'A') sum += 11;
-          else if (['K','Q','J'].includes(c.value)) sum += 10;
-          else if (c.value === 'JOKER') sum += 15;
-          else sum += parseInt(c.value) || 0;
-        }
-      });
-      document.getElementById("selectedSum").textContent = `${sum}/51`;
     }
 
     document.getElementById("meldBtn").onclick = () => {
