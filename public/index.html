@@ -191,10 +191,334 @@
     let isMyTurn = false, hasDrawn = false;
     let draggedCardId = null;
 
+    // تم إصلاح زر إنشاء الغرفة ليرسل للحدث الصحيح بالسيرفر
     document.getElementById("createBtn").onclick = () => {
       const name = document.getElementById("pName").value.trim();
       if (!name) return alert("ادخل اسمك");
       socket.emit("create-room", { name }, (res) => {
-        if(res.success) { 
+        if(res && res.success) { 
           roomCode = res.code; 
-          document.getElementById("roomCodeDisp").textContent
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          document.getElementById("startBtn").classList.remove("hidden");
+          showGame(); 
+        } else {
+          alert(res ? res.message : "فشل إنشاء الغرفة");
+        }
+      });
+    };
+
+    document.getElementById("joinBtn").onclick = () => {
+      const name = document.getElementById("pName").value.trim();
+      const code = document.getElementById("rCode").value.trim();
+      if(!name || !code) return alert("ادخل الاسم وكود الغرفة");
+      socket.emit("join-room", { name, code }, (res) => {
+        if(res && res.success) { 
+          roomCode = code; 
+          document.getElementById("roomCodeDisp").textContent = roomCode;
+          showGame(); 
+        } else {
+          showError(res ? res.message : "فشل الانضمام");
+        }
+      });
+    };
+
+    document.getElementById("startBtn").onclick = () => {
+      socket.emit("start-game", { code: roomCode });
+    };
+
+    function copyRoomCode() {
+      if (!roomCode) return;
+      navigator.clipboard.writeText(roomCode);
+      const btn = document.getElementById("copyCodeBtn");
+      btn.textContent = "تم النسخ! ✅";
+      setTimeout(() => { btn.textContent = "نسخ 📋"; }, 2000);
+    }
+
+    function showGame() {
+      document.getElementById("authScreen").classList.add("hidden");
+      document.getElementById("gameScreen").classList.remove("hidden");
+      setupDiscardDropZone();
+    }
+
+    socket.on("update-players", (players) => {
+      const opp = players.find(p => p.id !== socket.id);
+      if (opp) document.getElementById("oppName").textContent = opp.name;
+    });
+
+    socket.on("your-hand", (hand) => {
+      const half = Math.ceil(hand.length / 2);
+      myHandRow1 = hand.slice(0, half);
+      myHandRow2 = hand.slice(half);
+      selectedCardId = null;
+      renderHand();
+    });
+
+    socket.on("game-state", (state) => {
+      isMyTurn = state.turnPlayerId === socket.id;
+      hasDrawn = state.hasDrawn;
+      document.getElementById("startBtn").classList.add("hidden");
+      document.getElementById("statusText").textContent = isMyTurn ? "🟢 دورك" : `🔴 دور: ${state.turnPlayerName}`;
+
+      if (state.discardTop) {
+        document.getElementById("discardCard").innerHTML = `<span class="${state.discardTop.color}">${state.discardTop.value}${state.discardTop.suit}</span>`;
+      }
+      renderTableMelds(state.melds || []);
+      updateDiscardButtonVisibility();
+    });
+
+    socket.on("error-msg", (msg) => showError(msg));
+
+    function showError(msg) {
+      const toast = document.getElementById("errorToast");
+      toast.textContent = msg;
+      toast.style.display = "block";
+      setTimeout(() => { toast.style.display = "none"; }, 2500);
+    }
+
+    function renderHand() {
+      renderRow("row1", myHandRow1);
+      renderRow("row2", myHandRow2);
+      calculateAndHighlightMelds();
+      updateDiscardButtonVisibility();
+    }
+
+    function renderRow(rowId, cards) {
+      const container = document.getElementById(rowId);
+      container.innerHTML = "";
+
+      container.ondragover = (e) => e.preventDefault();
+      container.ondrop = (e) => {
+        e.preventDefault();
+        if (!draggedCardId) return;
+        const allCards = [...myHandRow1, ...myHandRow2];
+        const sourceCard = allCards.find(c => c.id == draggedCardId);
+        if (!sourceCard) return;
+
+        myHandRow1 = myHandRow1.filter(c => c.id != draggedCardId);
+        myHandRow2 = myHandRow2.filter(c => c.id != draggedCardId);
+
+        if (rowId === "row1") myHandRow1.push(sourceCard);
+        else myHandRow2.push(sourceCard);
+
+        draggedCardId = null;
+        renderHand();
+      };
+
+      cards.forEach((card) => {
+        const div = document.createElement("div");
+        const isSelected = selectedCardId === card.id;
+        div.className = `card ${card.color} ${isSelected ? 'selected' : ''}`;
+        div.dataset.id = card.id;
+        div.draggable = true;
+        div.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
+        
+        div.onclick = (e) => {
+          e.stopPropagation();
+          selectedCardId = isSelected ? null : card.id;
+          renderHand();
+        };
+
+        div.ondragstart = (e) => {
+          draggedCardId = card.id;
+          div.classList.add("dragging");
+          e.dataTransfer.setData("text/plain", card.id);
+        };
+
+        div.ondragend = () => {
+          div.classList.remove("dragging");
+          clearDropTargetStyles();
+        };
+
+        div.ondragover = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (draggedCardId !== card.id) {
+            div.classList.add("drop-target-left");
+          }
+        };
+
+        div.ondragleave = () => {
+          div.classList.remove("drop-target-left");
+        };
+
+        div.ondrop = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          clearDropTargetStyles();
+          
+          if (draggedCardId && draggedCardId !== card.id) {
+            const rect = div.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            // إذا أفلتته على النصف الأيمن يتم إدراجه قبله تماماً (على شماله في RTL)
+            const insertBefore = offsetX > (rect.width / 2);
+            moveCardToTargetWithPrecision(draggedCardId, card.id, rowId, insertBefore);
+          }
+        };
+
+        container.appendChild(div);
+      });
+    }
+
+    function clearDropTargetStyles() {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('drop-target-left'));
+      document.getElementById('discardPile').classList.remove('drag-over-discard');
+    }
+
+    function setupDiscardDropZone() {
+      const discardBox = document.getElementById("discardPile");
+      
+      discardBox.ondragover = (e) => {
+        e.preventDefault();
+        if (isMyTurn && hasDrawn) {
+          discardBox.classList.add("drag-over-discard");
+        }
+      };
+
+      discardBox.ondragleave = () => {
+        discardBox.classList.remove("drag-over-discard");
+      };
+
+      discardBox.ondrop = (e) => {
+        e.preventDefault();
+        discardBox.classList.remove("drag-over-discard");
+        if (isMyTurn && hasDrawn && draggedCardId) {
+          executeDiscard(draggedCardId);
+        }
+      };
+    }
+
+    function moveCardToTargetWithPrecision(sourceId, targetId, targetRowId, insertBefore) {
+      const allCards = [...myHandRow1, ...myHandRow2];
+      const sourceCard = allCards.find(c => c.id == sourceId);
+
+      if (!sourceCard) return;
+
+      myHandRow1 = myHandRow1.filter(c => c.id != sourceId);
+      myHandRow2 = myHandRow2.filter(c => c.id != sourceId);
+
+      const targetRow = targetRowId === "row1" ? myHandRow1 : myHandRow2;
+      const targetIdx = targetRow.findIndex(c => c.id == targetId);
+
+      if (targetIdx !== -1) {
+        const finalIdx = insertBefore ? targetIdx : targetIdx + 1;
+        targetRow.splice(finalIdx, 0, sourceCard);
+      } else {
+        targetRow.push(sourceCard);
+      }
+
+      draggedCardId = null;
+      renderHand();
+    }
+
+    function updateDiscardButtonVisibility() {
+      const btn = document.getElementById("discardBtn");
+      if (selectedCardId && isMyTurn && hasDrawn) {
+        btn.classList.remove("hidden");
+      } else {
+        btn.classList.add("hidden");
+      }
+    }
+
+    function executeDiscard(cardId) {
+      socket.emit("discard-card", { roomCode, cardId });
+      selectedCardId = null;
+      draggedCardId = null;
+    }
+
+    document.getElementById("discardBtn").onclick = () => {
+      if (selectedCardId && isMyTurn && hasDrawn) {
+        executeDiscard(selectedCardId);
+      }
+    };
+
+    document.getElementById("deckPile").onclick = () => {
+      if (isMyTurn && !hasDrawn) {
+        socket.emit("draw-card", { roomCode, fromDiscard: false });
+      }
+    };
+
+    document.getElementById("discardPile").onclick = () => {
+      if (isMyTurn && !hasDrawn) {
+        socket.emit("draw-card", { roomCode, fromDiscard: true });
+      }
+    };
+
+    function calculateAndHighlightMelds() {
+      document.querySelectorAll('.card').forEach(c => {
+        c.classList.remove('meld-start', 'meld-mid', 'meld-end');
+      });
+
+      let totalMeldSum = 0;
+
+      [myHandRow1, myHandRow2].forEach(row => {
+        let i = 0;
+        while (i < row.length) {
+          let mLen = findValidMeldLength(row, i);
+          if (mLen >= 3) {
+            let meldGroup = row.slice(i, i + mLen);
+            applyMeldBorder(meldGroup);
+            totalMeldSum += getGroupScore(meldGroup);
+            i += mLen;
+          } else {
+            i++;
+          }
+        }
+      });
+
+      document.getElementById("selectedSum").textContent = `${totalMeldSum}/51`;
+    }
+
+    function findValidMeldLength(row, startIndex) {
+      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+      
+      for (let len = row.length - startIndex; len >= 3; len--) {
+        let sub = row.slice(startIndex, startIndex + len);
+        let nonJokers = sub.filter(c => c.value !== 'JOKER');
+        
+        if (nonJokers.length > 0) {
+          let firstVal = nonJokers[0].value;
+          let isSameSet = nonJokers.every(c => c.value === firstVal);
+          let suits = new Set(nonJokers.map(c => c.suit));
+          if (isSameSet && suits.size === nonJokers.length) return len;
+        }
+
+        if (nonJokers.length > 0) {
+          let targetSuit = nonJokers[0].suit;
+          let sameSuit = nonJokers.every(c => c.suit === targetSuit);
+          if (sameSuit) {
+            let isValidSequence = true;
+            let lastKnownVal = null;
+            let lastKnownIdx = -1;
+
+            for (let k = 0; k < sub.length; k++) {
+              if (sub[k].value !== 'JOKER') {
+                let currentValNum = valOrder[sub[k].value];
+                if (lastKnownVal !== null) {
+                  let diff = currentValNum - lastKnownVal;
+                  let expectedDiff = k - lastKnownIdx;
+                  if (diff !== expectedDiff) { isValidSequence = false; break; }
+                }
+                lastKnownVal = currentValNum;
+                lastKnownIdx = k;
+              }
+            }
+            if (isValidSequence) return len;
+          }
+        }
+      }
+      return 0;
+    }
+
+    function applyMeldBorder(cards) {
+      cards.forEach((card, idx) => {
+        const el = document.querySelector(`[data-id="${card.id}"]`);
+        if (el) {
+          if (idx === 0) el.classList.add('meld-start');
+          else if (idx === cards.length - 1) el.classList.add('meld-end');
+          else el.classList.add('meld-mid');
+        }
+      });
+    }
+
+    function getGroupScore(cards) {
+      const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, '
