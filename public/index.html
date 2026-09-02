@@ -1,1 +1,43 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>هاند سعودي - جواكر</title>
+  <style>
+    body { margin: 0; background: #0b3818; color: white; font-family: sans-serif; text-align: center; }
+    .card { width: 55px; height: 80px; background: white; color: black; border-radius: 6px; display: inline-block; margin: 2px; font-weight: bold; padding: 4px; border: 2px solid #ccc; }
+    .card.red { color: red; }
+    .hand-tray { display: flex; justify-content: center; margin-top: 20px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h2>🃏 هاند سعودي</h2>
+  <div id="setup">
+    <input id="name" placeholder="اسمك">
+    <button onclick="createRoom()">إنشاء غرفة</button>
+  </div>
+  <div id="game" style="display:none;">
+    <h3>الكروت بيدك:</h3>
+    <div id="hand" class="hand-tray"></div>
+  </div>
 
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    function createRoom() {
+      const name = document.getElementById("name").value;
+      socket.emit("create-room", { name }, (res) => {
+        if(res.success) {
+          document.getElementById("setup").style.display = "none";
+          document.getElementById("game").style.display = "block";
+        }
+      });
+    }
+    socket.on("your-hand", (hand) => {
+      const hDiv = document.getElementById("hand");
+      hDiv.innerHTML = hand.map(c => `<div class="card ${c.color}">${c.value}<br>${c.suit}</div>`).join("");
+    });
+  </script>
+</body>
+</html>
