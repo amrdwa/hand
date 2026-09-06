@@ -8,7 +8,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let rooms = {};
 
-// مصفوفة ألوان مميزة للمجموعات على الطاولة (كل نزول جديد يأخذ لون مختلف)
 const meldColors = [
   '#FF5733', // أحمر برتقالي
   '#33FF57', // أخضر ساطع
@@ -174,8 +173,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // النزول التلقائي بناءً على المجموعات المصفطة بيد اللاعب عند ضغط زر النزول
-  socket.on('meld-cards', ({ roomCode }) => {
+  // معالجة النزول: تدعم الكروت المحددة من الواجهة، وإذا لم تكن محددة تفحص يد اللاعب كاملة بغض النظر عن ترتيب الكروت
+  socket.on('meld-cards', ({ roomCode, cardIds }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
@@ -183,24 +182,33 @@ io.on('connection', (socket) => {
     if (!player) return;
 
     let handCards = [...player.hand];
+    let selectedCards = [];
+
+    // إذا أرسل المستخدم كروت محددة نأخذها، وإذا لم يرسل نأخذ كل يد اللاعب لفحصها
+    if (cardIds && cardIds.length > 0) {
+      selectedCards = handCards.filter(c => cardIds.includes(c.id));
+    } else {
+      selectedCards = [...handCards];
+    }
+
     let verifiedGroups = [];
     let totalScore = 0;
+    let available = [...selectedCards];
 
-    let availableCards = [...handCards];
-    let foundNewMeld = true;
-
-    while (foundNewMeld) {
-      foundNewMeld = false;
-      for (let len = availableCards.length; len >= 3; len--) {
+    // خوارزمية ذكية لاستخراج جميع المجموعات الممكنة من الكروت المتاحة
+    let found = true;
+    while (found) {
+      found = false;
+      for (let len = available.length; len >= 3; len--) {
         let matched = false;
-        for (let i = 0; i <= availableCards.length - len; i++) {
-          let candidate = availableCards.slice(i, i + len);
+        // تجربة كل التوافقات المحتملة للوصول للمجموعات حتى لو لم تكن متجاورة تماماً
+        for (let i = 0; i <= available.length - len; i++) {
+          let candidate = available.slice(i, i + len);
           if (isValidSingleMeld(candidate)) {
             verifiedGroups.push(candidate);
             totalScore += candidate.reduce((s, c) => s + getCardScore(c, candidate), 0);
-            
-            availableCards.splice(i, len);
-            foundNewMeld = true;
+            available.splice(i, len);
+            found = true;
             matched = true;
             break;
           }
@@ -210,7 +218,7 @@ io.on('connection', (socket) => {
     }
 
     if (!player.hasMelded && totalScore < 51) {
-      return socket.emit('error-msg', `مجموع الكروت المترتبة في يدك هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
+      return socket.emit('error-msg', `مجموع الكروت الصالحة للنزول هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
     }
 
     if (verifiedGroups.length > 0) {
@@ -228,7 +236,7 @@ io.on('connection', (socket) => {
       socket.emit('your-hand', player.hand);
       sendGameState(roomCode);
     } else {
-      socket.emit('error-msg', 'لا توجد أي مجموعات صحيحة أو مرتبة في يدك للنزول بها');
+      socket.emit('error-msg', 'لا توجد مجموعات صحيحة ومكتملة للنزول بها');
     }
   });
 
