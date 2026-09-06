@@ -99,14 +99,17 @@ function validateMeld(meldCards) {
     };
 }
 
-io.on('connection', (socket) => {
-    console.log(`مستخدم متصل: ${socket.id}`);
-
-    socket.on('join_game', (name) => {
-        if (gameState.gameStarted) {
-            socket.emit('error_msg', 'اللعبة جارية بالفعل!');
-            return;
-        }
+// دالة مسؤولة عن انضمام أو إنشاء الغرفة للتاكد من استقبال أي اسم حدث من الواجهة
+function handlePlayerJoin(socket, nameData) {
+    let name = typeof nameData === 'string' ? nameData : nameData?.name;
+    
+    if (gameState.gameStarted) {
+        socket.emit('error_msg', 'اللعبة جارية بالفعل!');
+        return;
+    }
+    
+    let existing = gameState.players.find(p => p.id === socket.id);
+    if (!existing) {
         gameState.players.push({
             id: socket.id,
             name: name || `لاعب ${gameState.players.length + 1}`,
@@ -115,8 +118,17 @@ io.on('connection', (socket) => {
             hasMelled: false,
             score: 0
         });
-        io.emit('update_state', gameState);
-    });
+    }
+    
+    io.emit('update_state', gameState);
+}
+
+io.on('connection', (socket) => {
+    console.log(`مستخدم متصل: ${socket.id}`);
+
+    // استقبال أحداث الانضمام أو إنشاء الغرفة بكلا الاسمين
+    socket.on('join_game', (data) => handlePlayerJoin(socket, data));
+    socket.on('create_room', (data) => handlePlayerJoin(socket, data));
 
     socket.on('start_game', () => {
         if (gameState.players.length < 2) {
@@ -210,7 +222,6 @@ io.on('connection', (socket) => {
         let cardToAdd = player.hand[cardIndex];
         let currentMeld = targetPlayer.melds[meldIndex];
         
-        // اختبار صحة المجموعة بعد الإضافة
         let testMeld = [...currentMeld, cardToAdd];
         let validation = validateMeld(testMeld);
 
@@ -240,14 +251,11 @@ io.on('connection', (socket) => {
         let discardedCard = player.hand.splice(cardIndex, 1)[0];
         gameState.discardPile.push(discardedCard);
 
-        // التحقق من التسكير (إنهاء الجولة)
         if (player.hand.length === 0) {
-            // حساب النقاط والعقوبات لباقي اللاعبين (مثل عقوبة 100 نقطة لمن لم ينزل)
             gameState.players.forEach(p => {
                 if (!p.hasMelled) {
-                    p.score += 100; // عقوبة عدم النزول
+                    p.score += 100;
                 } else {
-                    // حساب مجموع الأوراق المتبقية في يد اللاعبين الآخرين
                     let penalty = p.hand.reduce((sum, c) => sum + getCardPoint(c), 0);
                     p.score += penalty;
                 }
