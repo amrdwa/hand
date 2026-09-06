@@ -8,6 +8,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let rooms = {};
 
+// مصفوفة ألوان مميزة للمجموعات على الطاولة (كل نزول جديد يأخذ لون مختلف)
+const meldColors = [
+  '#FF5733', // أحمر برتقالي
+  '#33FF57', // أخضر ساطع
+  '#3357FF', // أزرق
+  '#F3FF33', // أصفر
+  '#FF33F3', // وردي
+  '#33FFF3', // سماوي
+  '#FFA533', // برتقالي
+  '#A833FF'  // بنفسجي
+];
+
 function createDeck() {
   const suits = ['♠', '♥', '♦', '♣'];
   const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -53,7 +65,6 @@ function isValidSingleMeld(sub) {
 
   let nonJokers = sub.filter(c => c.value !== 'JOKER');
   
-  // Sets (متشابهة)
   if (nonJokers.length > 0) {
     let firstVal = nonJokers[0].value;
     let isSameSet = nonJokers.every(c => c.value === firstVal);
@@ -63,7 +74,6 @@ function isValidSingleMeld(sub) {
     }
   }
 
-  // Runs (متسلسلة)
   if (nonJokers.length > 0) {
     let targetSuit = nonJokers[0].suit;
     let sameSuit = nonJokers.every(c => c.suit === targetSuit);
@@ -96,7 +106,6 @@ function isValidRunDirection(sub, valOrder, step) {
 
 io.on('connection', (socket) => {
 
-  // دعم إنشاء الغرفة بكلا الحدثين لضمان عمل الواجهة الأمامية بدون أخطاء
   socket.on('create-room', ({ name }, cb) => handleCreateRoom(socket, name, cb));
   socket.on('create_room', ({ name }, cb) => handleCreateRoom(socket, name, cb));
 
@@ -122,12 +131,11 @@ io.on('connection', (socket) => {
     room.started = true;
     room.turnIndex = 0;
     room.hasDrawn = false;
-    room.lastActionWasDiscardFromBurn = false; // قاعدة 13: تتبع السحب من المحرقة
+    room.lastActionWasDiscardFromBurn = false;
 
     room.players.forEach((p, index) => {
       p.hasMelded = false;
       p.melds = [];
-      // قاعدة 1 و 2: الموزع (أول لاعب) يأخذ 15 ورقة والباقي 14 ورقة
       const count = index === 0 ? 15 : 14;
       p.hand = room.deck.splice(0, count);
       io.to(p.id).emit('your-hand', p.hand);
@@ -147,9 +155,8 @@ io.on('connection', (socket) => {
     let drawnCard;
     if (fromDiscard && room.discardPile.length > 0) {
       drawnCard = room.discardPile.pop();
-      room.lastActionWasDiscardFromBurn = true; // تطبيق قاعدة السحب من الحرق
+      room.lastActionWasDiscardFromBurn = true;
     } else if (room.deck.length > 0) {
-      // قاعدة 14: إعادة تدوير الكوتشينة عند نفادها
       if (room.deck.length === 0) {
         let topBurn = room.discardPile.pop();
         room.deck = createDeck();
@@ -167,8 +174,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // معالجة النزول وفحص المجموعات وقاعدة الـ 51 نقطة والجوكر (القواعد 3، 4، 5، 6، 7)
-  socket.on('meld-cards', ({ roomCode, cardIds }) => {
+  // النزول التلقائي بناءً على المجموعات المصفطة بيد اللاعب عند ضغط زر النزول
+  socket.on('meld-cards', ({ roomCode }) => {
     const room = rooms[roomCode];
     if (!room) return;
 
@@ -176,38 +183,34 @@ io.on('connection', (socket) => {
     if (!player) return;
 
     let handCards = [...player.hand];
-    let selectedSet = new Set(cardIds);
     let verifiedGroups = [];
     let totalScore = 0;
 
-    let i = 0;
-    while (i < handCards.length) {
-      if (selectedSet.has(handCards[i].id)) {
-        let bestLen = 0;
-        for (let len = handCards.length - i; len >= 3; len--) {
-          let candidate = handCards.slice(i, i + len);
-          let allSelected = candidate.every(c => selectedSet.has(c.id));
-          if (allSelected && isValidSingleMeld(candidate)) {
-            bestLen = len;
+    let availableCards = [...handCards];
+    let foundNewMeld = true;
+
+    while (foundNewMeld) {
+      foundNewMeld = false;
+      for (let len = availableCards.length; len >= 3; len--) {
+        let matched = false;
+        for (let i = 0; i <= availableCards.length - len; i++) {
+          let candidate = availableCards.slice(i, i + len);
+          if (isValidSingleMeld(candidate)) {
+            verifiedGroups.push(candidate);
+            totalScore += candidate.reduce((s, c) => s + getCardScore(c, candidate), 0);
+            
+            availableCards.splice(i, len);
+            foundNewMeld = true;
+            matched = true;
             break;
           }
         }
-        if (bestLen > 0) {
-          let validMeld = handCards.slice(i, i + bestLen);
-          verifiedGroups.push(validMeld);
-          totalScore += validMeld.reduce((s, c) => s + getCardScore(c, validMeld), 0);
-          i += bestLen;
-        } else {
-          i++;
-        }
-      } else {
-        i++;
+        if (matched) break;
       }
     }
 
-    // قاعدة 3: النزول الأول يجب ألا يقل عن 51 نقطة
-    if (!player.hasMelded && (verifiedGroups.length === 0 || totalScore < 51)) {
-      return socket.emit('error-msg', `مجموع الكروت المحددة هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
+    if (!player.hasMelded && totalScore < 51) {
+      return socket.emit('error-msg', `مجموع الكروت المترتبة في يدك هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
     }
 
     if (verifiedGroups.length > 0) {
@@ -215,20 +218,20 @@ io.on('connection', (socket) => {
       
       player.hand = player.hand.filter(c => !cardsToRemove.includes(c.id));
       player.hasMelded = true;
-      room.lastActionWasDiscardFromBurn = false; // قاعدة 13: النزول يلغي القيد المفروض على ورقة الحرق
+      room.lastActionWasDiscardFromBurn = false;
 
       verifiedGroups.forEach(group => {
-        room.melds.push(group);
+        const assignedColor = meldColors[room.melds.length % meldColors.length];
+        room.melds.push({ cards: group, color: assignedColor });
       });
 
       socket.emit('your-hand', player.hand);
       sendGameState(roomCode);
     } else {
-      socket.emit('error-msg', 'الورقة التي أضفتها خاطئة أو غير مرتبة في مجموعة صحيحة');
+      socket.emit('error-msg', 'لا توجد أي مجموعات صحيحة أو مرتبة في يدك للنزول بها');
     }
   });
 
-  // قاعدة 8: إضافة أوراق إلى مجموعات موجودة مسبقاً على الطاولة
   socket.on('add-to-meld', ({ roomCode, targetPlayerId, meldIndex, cardId }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -242,21 +245,20 @@ io.on('connection', (socket) => {
     if (cardIndex === -1) return;
 
     const cardToAdd = player.hand[cardIndex];
-    const currentMeld = room.melds[meldIndex];
-    if (!currentMeld) return;
+    const targetMeldObj = room.melds[meldIndex];
+    if (!targetMeldObj) return;
 
-    let testMeld = [...currentMeld, cardToAdd];
+    let testMeld = [...targetMeldObj.cards, cardToAdd];
     if (!isValidSingleMeld(testMeld)) {
       return socket.emit('error-msg', 'هذه الإضافة غير قانونية للمجموعة!');
     }
 
     player.hand.splice(cardIndex, 1);
-    room.melds[meldIndex] = testMeld;
+    targetMeldObj.cards = testMeld;
     socket.emit('your-hand', player.hand);
     sendGameState(roomCode);
   });
 
-  // رمي الورقة، إنهاء الدور، وقواعد التسكير والعقوبات (القواعد 9، 10، 11، 12، 15)
   socket.on('discard-card', ({ roomCode, cardId }) => {
     const room = rooms[roomCode];
     if (!room || !room.hasDrawn) return;
@@ -264,7 +266,6 @@ io.on('connection', (socket) => {
     const player = room.players[room.turnIndex];
     if (player.id !== socket.id) return;
 
-    // قاعدة 13: إذا سحب اللاعب من الحرق يجب عليه النزول ولا يحق له الرمي المباشر إذا كان عليه قيد
     if (room.lastActionWasDiscardFromBurn && !player.hasMelded) {
       return socket.emit('error-msg', 'لا يمكنك رمي هذه الورقة فوراً، يجب عليك النزول أولاً لأنك سحبت من ورقة الحرق!');
     }
@@ -274,11 +275,10 @@ io.on('connection', (socket) => {
       const [discarded] = player.hand.splice(cardIndex, 1);
       room.discardPile.push(discarded);
 
-      // قاعدة 10 و 11 و 12: التسكير ونهاية الجولة وحساب النقاط
       if (player.hand.length === 0) {
         room.players.forEach(p => {
           if (!p.hasMelded) {
-            p.score += 100; // قاعدة 12: عقوبة 100 نقطة لمن لم ينزل نهائياً
+            p.score += 100;
           } else {
             p.score += p.hand.reduce((sum, c) => sum + getCardScore(c), 0);
           }
