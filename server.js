@@ -1,280 +1,269 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const path = require('path');
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+let rooms = {};
 
 function createDeck() {
-    let deck = [];
-    for (let r = 0; r < 2; r++) {
-        for (let suit of suits) {
-            for (let val of values) {
-                deck.push({ suit, val, id: `${suit}_${val}_${r}_${Math.random()}` });
-            }
-        }
+  const suits = ['♠', '♥', '♦', '♣'];
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  let deck = [];
+  let id = 1;
+
+  for (let d = 0; d < 2; d++) {
+    for (let s of suits) {
+      for (let v of values) {
+        let color = (s === '♥' || s === '♦') ? 'red' : 'black';
+        deck.push({ id: id++, value: v, suit: s, color: color });
+      }
     }
-    for (let i = 0; i < 2; i++) {
-        deck.push({ suit: 'joker', val: 'JOKER', id: `joker_${i}_${Math.random()}` });
-    }
-    
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return deck;
+    deck.push({ id: id++, value: 'JOKER', suit: '🃏', color: 'red' });
+    deck.push({ id: id++, value: 'JOKER', suit: '🃏', color: 'black' });
+  }
+
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
 }
 
-let gameState = {
-    players: [],
-    stockPile: [],
-    discardPile: [],
-    turnIndex: 0,
-    gameStarted: false,
-    lastActionWasDiscardFromBurn: false
-};
-
-function initializeGameRound(players) {
-    let deck = createDeck();
-
-    players.forEach(player => {
-        player.hand = deck.splice(0, 14);
-        player.melds = [];
-        player.hasMelled = false;
-        player.score = 0;
-    });
-
-    if (players.length > 0) {
-        players[0].hand.push(deck.splice(0, 1)[0]);
-    }
-
-    gameState.stockPile = deck;
-    gameState.discardPile = [gameState.stockPile.splice(0, 1)[0]];
-    gameState.turnIndex = 0;
-    gameState.gameStarted = true;
+function getCardScore(card, groupCards = null) {
+  const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+  if (card.value === 'A') return 11;
+  if (['K', 'Q', 'J'].includes(card.value)) return 10;
+  if (card.value !== 'JOKER') return parseInt(card.value) || 0;
+  
+  if (groupCards) {
+    const idx = groupCards.findIndex(c => c.id === card.id);
+    let prev = groupCards[idx-1], next = groupCards[idx+1];
+    if (prev && prev.value !== 'JOKER') return (valOrder[prev.value] || 0) + 1;
+    if (next && next.value !== 'JOKER') return Math.max(1, (valOrder[next.value] || 0) - 1);
+  }
+  return 10;
 }
 
-function getCardPoint(card) {
-    if (card.suit === 'joker') return 15;
-    if (card.val === 'A') return 11;
-    if (['J', 'Q', 'K'].includes(card.val)) return 10;
-    return parseInt(card.val);
+function isValidSingleMeld(sub) {
+  const valOrder = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14};
+  if (sub.length < 3) return false;
+
+  let nonJokers = sub.filter(c => c.value !== 'JOKER');
+  
+  // Sets (متشابهة)
+  if (nonJokers.length > 0) {
+    let firstVal = nonJokers[0].value;
+    let isSameSet = nonJokers.every(c => c.value === firstVal);
+    let suits = new Set(nonJokers.map(c => c.suit));
+    if (isSameSet && suits.size === nonJokers.length && sub.length >= 3 && sub.length <= 4) {
+      return true;
+    }
+  }
+
+  // Runs (متسلسلة)
+  if (nonJokers.length > 0) {
+    let targetSuit = nonJokers[0].suit;
+    let sameSuit = nonJokers.every(c => c.suit === targetSuit);
+    if (sameSuit) {
+      if (isValidRunDirection(sub, valOrder, 1) || isValidRunDirection(sub, valOrder, -1)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
-// دالة التحقق من صحة المجموعات الأساسية
-function validateMeld(meldCards) {
-    if (!meldCards || meldCards.length < 3) return { valid: false, points: 0, type: null };
-
-    let nonJokers = meldCards.filter(c => c.suit !== 'joker');
-    let firstVal = nonJokers[0]?.val;
-    let isSet = nonJokers.every(c => c.val === firstVal);
-
-    if (isSet) {
-        let suitsSet = new Set();
-        let points = 0;
-        for (let card of meldCards) {
-            if (card.suit !== 'joker') {
-                if (suitsSet.has(card.suit)) return { valid: false, points: 0 };
-                suitsSet.add(card.suit);
-            }
-            points += (card.suit === 'joker' ? (firstVal === 'A' ? 11 : (['J','Q','K'].includes(firstVal) ? 10 : parseInt(firstVal) || 10)) : getCardPoint(card));
-        }
-        return { valid: true, points, type: 'set' };
+function isValidRunDirection(sub, valOrder, step) {
+  let lastVal = null;
+  let lastIdx = -1;
+  for (let k = 0; k < sub.length; k++) {
+    if (sub[k].value !== 'JOKER') {
+      let currentVal = valOrder[sub[k].value];
+      if (lastVal !== null) {
+        let expectedVal = lastVal + (step * (k - lastIdx));
+        if (currentVal !== expectedVal) return false;
+      }
+      lastVal = currentVal;
+      lastIdx = k;
     }
-
-    let firstSuit = nonJokers[0]?.suit;
-    let sameSuit = nonJokers.every(c => c.suit === firstSuit);
-    if (!sameSuit) return { valid: false, points: 0 };
-
-    return { 
-        valid: true, 
-        points: meldCards.reduce((sum, c) => sum + (c.suit === 'joker' ? 10 : getCardPoint(c)), 0), 
-        type: 'sequence' 
-    };
-}
-
-// دالة مسؤولة عن انضمام أو إنشاء الغرفة للتاكد من استقبال أي اسم حدث من الواجهة
-function handlePlayerJoin(socket, nameData) {
-    let name = typeof nameData === 'string' ? nameData : nameData?.name;
-    
-    if (gameState.gameStarted) {
-        socket.emit('error_msg', 'اللعبة جارية بالفعل!');
-        return;
-    }
-    
-    let existing = gameState.players.find(p => p.id === socket.id);
-    if (!existing) {
-        gameState.players.push({
-            id: socket.id,
-            name: name || `لاعب ${gameState.players.length + 1}`,
-            hand: [],
-            melds: [],
-            hasMelled: false,
-            score: 0
-        });
-    }
-    
-    io.emit('update_state', gameState);
+  }
+  return true;
 }
 
 io.on('connection', (socket) => {
-    console.log(`مستخدم متصل: ${socket.id}`);
 
-    // استقبال أحداث الانضمام أو إنشاء الغرفة بكلا الاسمين
-    socket.on('join_game', (data) => handlePlayerJoin(socket, data));
-    socket.on('create_room', (data) => handlePlayerJoin(socket, data));
+  socket.on('create-room', ({ name }, cb) => {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    rooms[code] = {
+      code: code,
+      players: [{ id: socket.id, name, hand: [], hasMelded: false }],
+      deck: [],
+      discardPile: [],
+      melds: [],
+      turnIndex: 0,
+      round: 1,
+      started: false,
+      hasDrawn: false
+    };
+    socket.join(code);
+    cb({ success: true, code });
+  });
 
-    socket.on('start_game', () => {
-        if (gameState.players.length < 2) {
-            socket.emit('error_msg', 'يجب تواجد لاعبان على الأقل لبدء اللعبة!');
-            return;
-        }
-        initializeGameRound(gameState.players);
-        io.emit('update_state', gameState);
+  socket.on('join-room', ({ name, code }, cb) => {
+    const room = rooms[code];
+    if (!room) return cb({ success: false, message: 'الغرفة غير موجودة' });
+    if (room.players.length >= 4) return cb({ success: false, message: 'الغرفة مكتملة' });
+
+    room.players.push({ id: socket.id, name, hand: [], hasMelded: false });
+    socket.join(code);
+    cb({ success: true });
+    io.to(code).emit('update-players', room.players);
+  });
+
+  socket.on('start-game', ({ code }) => {
+    const room = rooms[code];
+    if (!room) return;
+
+    room.deck = createDeck();
+    room.discardPile = [];
+    room.melds = [];
+    room.started = true;
+    room.turnIndex = 0;
+    room.hasDrawn = false;
+
+    room.players.forEach((p, index) => {
+      p.hasMelded = false;
+      const count = index === 0 ? 15 : 14;
+      p.hand = room.deck.splice(0, count);
+      io.to(p.id).emit('your-hand', p.hand);
     });
 
-    // السحب (قواعد السحب من المجموع أو الحرق)
-    socket.on('draw_card', (source) => {
-        let player = gameState.players[gameState.turnIndex];
-        if (!player || socket.id !== player.id) return;
+    room.discardPile.push(room.deck.pop());
+    sendGameState(code);
+  });
 
-        if (source === 'stock') {
-            if (gameState.stockPile.length === 0) {
-                let topBurn = gameState.discardPile.pop();
-                gameState.stockPile = createDeck();
-                gameState.discardPile = [topBurn];
-            }
-            let drawnCard = gameState.stockPile.splice(0, 1)[0];
-            player.hand.push(drawnCard);
-            gameState.lastActionWasDiscardFromBurn = false;
-            io.emit('update_state', gameState);
+  socket.on('draw-card', ({ roomCode, fromDiscard }) => {
+    const room = rooms[roomCode];
+    if (!room || room.hasDrawn) return;
 
-        } else if (source === 'burn') {
-            if (gameState.discardPile.length === 0) return;
-            let drawnCard = gameState.discardPile.pop();
-            player.hand.push(drawnCard);
-            gameState.lastActionWasDiscardFromBurn = true;
-            io.emit('update_state', gameState);
+    const currentPlayer = room.players[room.turnIndex];
+    if (currentPlayer.id !== socket.id) return;
+
+    let drawnCard;
+    if (fromDiscard && room.discardPile.length > 0) {
+      drawnCard = room.discardPile.pop();
+    } else if (room.deck.length > 0) {
+      drawnCard = room.deck.pop();
+    }
+
+    if (drawnCard) {
+      currentPlayer.hand.push(drawnCard);
+      room.hasDrawn = true;
+      socket.emit('your-hand', currentPlayer.hand);
+      sendGameState(roomCode);
+    }
+  });
+
+  // معالجة النزول وفحص المجموعات في السيرفر بدقة
+  socket.on('meld-cards', ({ roomCode, cardIds }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    let handCards = [...player.hand];
+    let selectedSet = new Set(cardIds);
+    let verifiedGroups = [];
+    let totalScore = 0;
+
+    let i = 0;
+    while (i < handCards.length) {
+      if (selectedSet.has(handCards[i].id)) {
+        let bestLen = 0;
+        for (let len = handCards.length - i; len >= 3; len--) {
+          let candidate = handCards.slice(i, i + len);
+          let allSelected = candidate.every(c => selectedSet.has(c.id));
+          if (allSelected && isValidSingleMeld(candidate)) {
+            bestLen = len;
+            break;
+          }
         }
-    });
-
-    // النزول الأول (شرط الـ 51 نقطة) أو النزول اللاحق
-    socket.on('meld_cards', (selectedMelds) => {
-        let player = gameState.players[gameState.turnIndex];
-        if (!player || socket.id !== player.id) return;
-
-        let totalPoints = 0;
-        let validatedMelds = [];
-
-        for (let m of selectedMelds) {
-            let res = validateMeld(m);
-            if (!res.valid) {
-                socket.emit('error_msg', 'إحدى المجموعات غير قانونية!');
-                return;
-            }
-            totalPoints += res.points;
-            validatedMelds.push(m);
+        if (bestLen > 0) {
+          let validMeld = handCards.slice(i, i + bestLen);
+          verifiedGroups.push(validMeld);
+          totalScore += validMeld.reduce((s, c) => s + getCardScore(c, validMeld), 0);
+          i += bestLen;
+        } else {
+          i++;
         }
+      } else {
+        i++;
+      }
+    }
 
-        if (!player.hasMelled) {
-            if (totalPoints < 51) {
-                socket.emit('error_msg', `مجموع نقاط النزول الأول ${totalPoints}، ويجب ألا يقل عن 51 نقطة!`);
-                return;
-            }
-        }
+    if (!player.hasMelded && (verifiedGroups.length === 0 || totalScore < 51)) {
+      return socket.emit('error-msg', `مجموع الكروت المحددة هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
+    }
 
-        validatedMelds.forEach(meld => {
-            meld.forEach(card => {
-                let cardIndex = player.hand.findIndex(c => c.id === card.id);
-                if (cardIndex !== -1) {
-                    player.hand.splice(cardIndex, 1);
-                }
-            });
-            player.melds.push(meld);
-        });
+    if (verifiedGroups.length > 0) {
+      let cardsToRemove = verifiedGroups.flat().map(c => c.id);
+      
+      player.hand = player.hand.filter(c => !cardsToRemove.includes(c.id));
+      player.hasMelded = true;
 
-        player.hasMelled = true;
-        gameState.lastActionWasDiscardFromBurn = false;
-        io.emit('update_state', gameState);
-    });
+      verifiedGroups.forEach(group => {
+        room.melds.push(group);
+      });
 
-    // إضافة أوراق إلى مجموعات موجودة مسبقاً على الطاولة
-    socket.on('add_to_meld', ({ targetPlayerId, meldIndex, cardId }) => {
-        let player = gameState.players[gameState.turnIndex];
-        if (!player || socket.id !== player.id) return;
-        if (!player.hasMelled) {
-            socket.emit('error_msg', 'يجب أن تنزل أولاً قبل الإضافة على المجموعات!');
-            return;
-        }
+      socket.emit('your-hand', player.hand);
+      sendGameState(roomCode);
+    } else {
+      socket.emit('error-msg', 'الورقة التي أضفتها خاطئة أو غير مرتبة في مجموعة صحيحة');
+    }
+  });
 
-        let targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
-        if (!targetPlayer || !targetPlayer.melds[meldIndex]) return;
+  socket.on('discard-card', ({ roomCode, cardId }) => {
+    const room = rooms[roomCode];
+    if (!room || !room.hasDrawn) return;
 
-        let cardIndex = player.hand.findIndex(c => c.id === cardId);
-        if (cardIndex === -1) return;
+    const player = room.players[room.turnIndex];
+    if (player.id !== socket.id) return;
 
-        let cardToAdd = player.hand[cardIndex];
-        let currentMeld = targetPlayer.melds[meldIndex];
-        
-        let testMeld = [...currentMeld, cardToAdd];
-        let validation = validateMeld(testMeld);
+    const cardIndex = player.hand.findIndex(c => c.id === cardId);
+    if (cardIndex !== -1) {
+      const [discarded] = player.hand.splice(cardIndex, 1);
+      room.discardPile.push(discarded);
 
-        if (!validation.valid) {
-            socket.emit('error_msg', 'هذه الإضافة غير قانونية للمجموعة!');
-            return;
-        }
+      room.turnIndex = (room.turnIndex + 1) % room.players.length;
+      room.hasDrawn = false;
 
-        player.hand.splice(cardIndex, 1);
-        targetPlayer.melds[meldIndex] = testMeld;
-        io.emit('update_state', gameState);
-    });
+      socket.emit('your-hand', player.hand);
+      sendGameState(roomCode);
+    }
+  });
 
-    // رمي الورقة وإنهاء الدور (مع حساب عقوبات عدم النزول أو التسكير)
-    socket.on('discard_card', (cardId) => {
-        let player = gameState.players[gameState.turnIndex];
-        if (!player || socket.id !== player.id) return;
-
-        if (gameState.lastActionWasDiscardFromBurn) {
-            socket.emit('error_msg', 'يجب أن تقوم بنزول قانوني على الطاولة لأنك سحبت من ورقة الحرق!');
-            return;
-        }
-
-        let cardIndex = player.hand.findIndex(c => c.id === cardId);
-        if (cardIndex === -1) return;
-
-        let discardedCard = player.hand.splice(cardIndex, 1)[0];
-        gameState.discardPile.push(discardedCard);
-
-        if (player.hand.length === 0) {
-            gameState.players.forEach(p => {
-                if (!p.hasMelled) {
-                    p.score += 100;
-                } else {
-                    let penalty = p.hand.reduce((sum, c) => sum + getCardPoint(c), 0);
-                    p.score += penalty;
-                }
-            });
-
-            io.emit('game_over', { winner: player.name, players: gameState.players });
-            gameState.gameStarted = false;
-            return;
-        }
-
-        gameState.turnIndex = (gameState.turnIndex - 1 + gameState.players.length) % gameState.players.length;
-        io.emit('update_state', gameState);
-    });
-
-    socket.on('disconnect', () => {
-        console.log(`مستخدم منفصل: ${socket.id}`);
-    });
 });
 
-server.listen(3000, () => {
-    console.log('خادم الهاند السعودية يعمل بنجاح على المنفذ 3000');
-});
+function sendGameState(code) {
+  const room = rooms[code];
+  if (!room) return;
+  const currentPlayer = room.players[room.turnIndex];
+
+  io.to(code).emit('game-state', {
+    round: room.round,
+    deckCount: room.deck.length,
+    discardTop: room.discardPile[room.discardPile.length - 1] || null,
+    turnPlayerId: currentPlayer ? currentPlayer.id : null,
+    turnPlayerName: currentPlayer ? currentPlayer.name : '',
+    hasDrawn: room.hasDrawn,
+    melds: room.melds
+  });
+}
+
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
