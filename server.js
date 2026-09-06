@@ -96,29 +96,17 @@ function isValidRunDirection(sub, valOrder, step) {
 
 io.on('connection', (socket) => {
 
-  socket.on('create-room', ({ name }, cb) => {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    rooms[code] = {
-      code: code,
-      players: [{ id: socket.id, name, hand: [], hasMelded: false }],
-      deck: [],
-      discardPile: [],
-      melds: [],
-      turnIndex: 0,
-      round: 1,
-      started: false,
-      hasDrawn: false
-    };
-    socket.join(code);
-    cb({ success: true, code });
-  });
+  // دعم إنشاء الغرفة بكلا الحدثين لضمان عمل الواجهة الأمامية بدون أخطاء
+  socket.on('create-room', ({ name }, cb) => handleCreateRoom(socket, name, cb));
+  socket.on('create_room', ({ name }, cb) => handleCreateRoom(socket, name, cb));
 
   socket.on('join-room', ({ name, code }, cb) => {
     const room = rooms[code];
     if (!room) return cb({ success: false, message: 'الغرفة غير موجودة' });
     if (room.players.length >= 4) return cb({ success: false, message: 'الغرفة مكتملة' });
+    if (room.started) return cb({ success: false, message: 'اللعبة قد بدأت بالفعل' });
 
-    room.players.push({ id: socket.id, name, hand: [], hasMelded: false });
+    room.players.push({ id: socket.id, name, hand: [], hasMelded: false, score: 0 });
     socket.join(code);
     cb({ success: true });
     io.to(code).emit('update-players', room.players);
@@ -134,9 +122,12 @@ io.on('connection', (socket) => {
     room.started = true;
     room.turnIndex = 0;
     room.hasDrawn = false;
+    room.lastActionWasDiscardFromBurn = false; // قاعدة 13: تتبع السحب من المحرقة
 
     room.players.forEach((p, index) => {
       p.hasMelded = false;
+      p.melds = [];
+      // قاعدة 1 و 2: الموزع (أول لاعب) يأخذ 15 ورقة والباقي 14 ورقة
       const count = index === 0 ? 15 : 14;
       p.hand = room.deck.splice(0, count);
       io.to(p.id).emit('your-hand', p.hand);
@@ -156,8 +147,16 @@ io.on('connection', (socket) => {
     let drawnCard;
     if (fromDiscard && room.discardPile.length > 0) {
       drawnCard = room.discardPile.pop();
+      room.lastActionWasDiscardFromBurn = true; // تطبيق قاعدة السحب من الحرق
     } else if (room.deck.length > 0) {
+      // قاعدة 14: إعادة تدوير الكوتشينة عند نفادها
+      if (room.deck.length === 0) {
+        let topBurn = room.discardPile.pop();
+        room.deck = createDeck();
+        room.discardPile = [topBurn];
+      }
       drawnCard = room.deck.pop();
+      room.lastActionWasDiscardFromBurn = false;
     }
 
     if (drawnCard) {
@@ -168,7 +167,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // معالجة النزول وفحص المجموعات في السيرفر بدقة
+  // معالجة النزول وفحص المجموعات وقاعدة الـ 51 نقطة والجوكر (القواعد 3، 4، 5، 6، 7)
   socket.on('meld-cards', ({ roomCode, cardIds }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -206,6 +205,7 @@ io.on('connection', (socket) => {
       }
     }
 
+    // قاعدة 3: النزول الأول يجب ألا يقل عن 51 نقطة
     if (!player.hasMelded && (verifiedGroups.length === 0 || totalScore < 51)) {
       return socket.emit('error-msg', `مجموع الكروت المحددة هو ${totalScore} ولا يفي بشرط الـ 51 نقطة للنزول الأول!`);
     }
@@ -215,6 +215,7 @@ io.on('connection', (socket) => {
       
       player.hand = player.hand.filter(c => !cardsToRemove.includes(c.id));
       player.hasMelded = true;
+      room.lastActionWasDiscardFromBurn = false; // قاعدة 13: النزول يلغي القيد المفروض على ورقة الحرق
 
       verifiedGroups.forEach(group => {
         room.melds.push(group);
@@ -227,6 +228,35 @@ io.on('connection', (socket) => {
     }
   });
 
+  // قاعدة 8: إضافة أوراق إلى مجموعات موجودة مسبقاً على الطاولة
+  socket.on('add-to-meld', ({ roomCode, targetPlayerId, meldIndex, cardId }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || !player.hasMelded) {
+      return socket.emit('error-msg', 'يجب أن تنزل أولاً قبل الإضافة على المجموعات!');
+    }
+
+    const cardIndex = player.hand.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const cardToAdd = player.hand[cardIndex];
+    const currentMeld = room.melds[meldIndex];
+    if (!currentMeld) return;
+
+    let testMeld = [...currentMeld, cardToAdd];
+    if (!isValidSingleMeld(testMeld)) {
+      return socket.emit('error-msg', 'هذه الإضافة غير قانونية للمجموعة!');
+    }
+
+    player.hand.splice(cardIndex, 1);
+    room.melds[meldIndex] = testMeld;
+    socket.emit('your-hand', player.hand);
+    sendGameState(roomCode);
+  });
+
+  // رمي الورقة، إنهاء الدور، وقواعد التسكير والعقوبات (القواعد 9، 10، 11، 12، 15)
   socket.on('discard-card', ({ roomCode, cardId }) => {
     const room = rooms[roomCode];
     if (!room || !room.hasDrawn) return;
@@ -234,13 +264,34 @@ io.on('connection', (socket) => {
     const player = room.players[room.turnIndex];
     if (player.id !== socket.id) return;
 
+    // قاعدة 13: إذا سحب اللاعب من الحرق يجب عليه النزول ولا يحق له الرمي المباشر إذا كان عليه قيد
+    if (room.lastActionWasDiscardFromBurn && !player.hasMelded) {
+      return socket.emit('error-msg', 'لا يمكنك رمي هذه الورقة فوراً، يجب عليك النزول أولاً لأنك سحبت من ورقة الحرق!');
+    }
+
     const cardIndex = player.hand.findIndex(c => c.id === cardId);
     if (cardIndex !== -1) {
       const [discarded] = player.hand.splice(cardIndex, 1);
       room.discardPile.push(discarded);
 
+      // قاعدة 10 و 11 و 12: التسكير ونهاية الجولة وحساب النقاط
+      if (player.hand.length === 0) {
+        room.players.forEach(p => {
+          if (!p.hasMelded) {
+            p.score += 100; // قاعدة 12: عقوبة 100 نقطة لمن لم ينزل نهائياً
+          } else {
+            p.score += p.hand.reduce((sum, c) => sum + getCardScore(c), 0);
+          }
+        });
+
+        io.to(roomCode).emit('game-over', { winner: player.name, players: room.players });
+        room.started = false;
+        return;
+      }
+
       room.turnIndex = (room.turnIndex + 1) % room.players.length;
       room.hasDrawn = false;
+      room.lastActionWasDiscardFromBurn = false;
 
       socket.emit('your-hand', player.hand);
       sendGameState(roomCode);
@@ -248,6 +299,28 @@ io.on('connection', (socket) => {
   });
 
 });
+
+function handleCreateRoom(socket, name, cb) {
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  rooms[code] = {
+    code: code,
+    players: [{ id: socket.id, name: name || 'لاعب', hand: [], hasMelded: false, score: 0 }],
+    deck: [],
+    discardPile: [],
+    melds: [],
+    turnIndex: 0,
+    round: 1,
+    started: false,
+    hasDrawn: false,
+    lastActionWasDiscardFromBurn: false
+  };
+  socket.join(code);
+  if (typeof cb === 'function') {
+    cb({ success: true, code });
+  } else {
+    socket.emit('room-created', { success: true, code });
+  }
+}
 
 function sendGameState(code) {
   const room = rooms[code];
@@ -261,7 +334,8 @@ function sendGameState(code) {
     turnPlayerId: currentPlayer ? currentPlayer.id : null,
     turnPlayerName: currentPlayer ? currentPlayer.name : '',
     hasDrawn: room.hasDrawn,
-    melds: room.melds
+    melds: room.melds,
+    players: room.players
   });
 }
 
